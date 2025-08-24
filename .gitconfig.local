@@ -1,0 +1,5 @@
+[user]
+    name = Serbyn Vitalii
+    email = serbyn.vitalii@gmail.com
+[commit]
+    template = .gitmessage
