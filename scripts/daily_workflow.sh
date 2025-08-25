@@ -123,7 +123,7 @@ for file in contracts/events/*.json; do
     if [ -f "$MAIN_DIR/docs/DAILY_STATUS.md" ]; then
         echo "Today's Tasks:"
         echo "--------------"
-        head -20 "$MAIN_DIR/docs/DAILY_STATUS.md" | grep -A 15 "^## Day" || echo "  No daily status found"
+        head -30 "$MAIN_DIR/docs/DAILY_STATUS.md" | grep -A 20 "^### 🎯 Today's Goals" || echo "  No daily status found"
     fi
 }
 
