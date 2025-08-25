@@ -1,0 +1,48 @@
+#!/bin/bash
+set -e
+
+# Check for co-author lines
+COAUTHOR_PATTERN="Co-authored-by"
+if git diff --cached | grep -q "$COAUTHOR_PATTERN"; then
+    echo "❌ ERROR: Co-author tags detected. Remove before committing."
+    exit 1
+fi
+
+# Ownership validation based on branch
+BRANCH=$(git branch --show-current)
+CHANGED_FILES=$(git diff --cached --name-only)
+
+case $BRANCH in
+    feat/core-api)
+        for file in $CHANGED_FILES; do
+            if [[ $file == contracts/events/* ]] || [[ $file == services/worker/* ]] || [[ $file == services/llm/* ]]; then
+                echo "❌ ERROR: Agent A cannot modify $file"
+                exit 1
+            fi
+        done
+        echo "✅ Agent A: File ownership check passed"
+        ;;
+    feat/reliability)
+        for file in $CHANGED_FILES; do
+            if [[ $file == contracts/openapi.yaml ]] || [[ $file == packages/db/migrations/* ]] || [[ $file == services/llm/* ]]; then
+                echo "❌ ERROR: Agent B cannot modify $file"
+                exit 1
+            fi
+        done
+        echo "✅ Agent B: File ownership check passed"
+        ;;
+    feat/llm)
+        for file in $CHANGED_FILES; do
+            if [[ $file == contracts/openapi.yaml ]] || [[ $file == contracts/events/order_v1.json ]] || [[ $file == packages/db/migrations/* ]]; then
+                echo "❌ ERROR: Agent C cannot modify $file"
+                exit 1
+            fi
+        done
+        echo "✅ Agent C: File ownership check passed"
+        ;;
+esac
+
+# Run quick validation
+if [ -f "Makefile" ]; then
+    make validate-contracts 2>/dev/null || true
+fi
