@@ -133,6 +133,7 @@ for file in contracts/events/*.json; do
         
         # Detect current agent and show specific tasks
         DIR_NAME=$(basename "$(pwd)")
+        echo "DEBUG: DIR_NAME='$DIR_NAME'" >&2
         case "$DIR_NAME" in
             ragline-a)
                 echo "📋 General Goals:"
