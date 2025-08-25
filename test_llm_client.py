@@ -7,6 +7,10 @@ Run this to test OpenAI integration and local model support.
 import asyncio
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add packages to path
 sys.path.insert(0, 'packages')

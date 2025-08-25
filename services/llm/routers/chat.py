@@ -5,13 +5,28 @@ Supports tool calling and RAG-enhanced responses.
 
 import asyncio
 import json
+import sys
 import uuid
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
+from dotenv import load_dotenv
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+# Load environment variables
+load_dotenv()
+
+# Add packages to path for LLM client
+sys.path.insert(0, '../../packages')
+
+try:
+    from rag.llm_client import get_llm_client, ChatMessage as LLMChatMessage
+    LLM_CLIENT_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import LLM client: {e}")
+    LLM_CLIENT_AVAILABLE = False
 
 # Use StreamingResponse instead of EventSourceResponse for now
 try:
@@ -41,7 +56,7 @@ class ChatResponse(BaseModel):
     """Chat response payload."""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     choices: List[Dict[str, Any]] = Field(default_factory=list)
-    usage: Optional[Dict[str, int]] = None
+    usage: Optional[Dict[str, Any]] = None  # Changed from int to Any to handle complex usage objects
     created: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
 
 
@@ -81,69 +96,136 @@ manager = ConnectionManager()
 async def generate_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
     """Generate streaming chat response with tool calling support."""
     
-    # TODO: Initialize LLM client
-    # TODO: Process messages and context
-    # TODO: Handle RAG retrieval if needed
-    # TODO: Execute tool calls if requested
+    if not LLM_CLIENT_AVAILABLE:
+        # Fallback to mock response if LLM client not available
+        yield f"data: {json.dumps({'type': 'error', 'message': 'LLM client not available'})}\n\n"
+        return
     
-    # Mock streaming response for now
-    response_chunks = [
-        "I'm",
-        " a",
-        " RAGline",
-        " LLM",
-        " service",
-        " with",
-        " RAG",
-        " capabilities.",
-        " I can",
-        " help",
-        " with",
-        " tool",
-        " calling",
-        " and",
-        " streaming",
-        " responses."
-    ]
-    
-    for i, chunk in enumerate(response_chunks):
-        # Simulate tool call at chunk 5
-        if i == 5 and request.tools_enabled:
-            tool_call = ToolCall(
-                function={
-                    "name": "retrieve_menu",
-                    "arguments": json.dumps({"query": "popular items"})
-                }
+    try:
+        # Get LLM client
+        client = get_llm_client()
+        
+        # Convert messages to LLM format
+        llm_messages = [
+            LLMChatMessage(
+                role=msg.role,
+                content=msg.content
             )
-            
-            # Emit tool call event
-            yield f"data: {json.dumps({'type': 'tool_call', 'tool_call': tool_call.dict()})}\n\n"
-            
-            # Simulate tool execution delay
-            await asyncio.sleep(0.1)
-            
-            # Emit tool result
-            tool_result = {
-                "type": "tool_result",
-                "tool_call_id": tool_call.id,
-                "result": "Found 3 popular menu items"
-            }
-            yield f"data: {json.dumps(tool_result)}\n\n"
+            for msg in request.messages
+        ]
         
-        # Emit text chunk
-        chunk_data = {
-            "type": "text",
-            "delta": {"content": chunk},
-            "finish_reason": None if i < len(response_chunks) - 1 else "stop"
+        # Define tools if enabled
+        tools = None
+        if request.tools_enabled:
+            tools = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "retrieve_menu",
+                        "description": "Retrieve menu items based on query or filters",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "query": {"type": "string", "description": "Search query"},
+                                "category": {"type": "string", "description": "Menu category filter"}
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "apply_promos",
+                        "description": "Apply promotional codes or discounts",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "promo_code": {"type": "string", "description": "Promotional code"},
+                                "order_id": {"type": "string", "description": "Order ID to apply promo to"}
+                            }
+                        }
+                    }
+                },
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "confirm",
+                        "description": "Confirm order or action with user",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "action": {"type": "string", "description": "Action to confirm"},
+                                "details": {"type": "object", "description": "Action details"}
+                            }
+                        }
+                    }
+                }
+            ]
+        
+        # Stream response from LLM
+        stream = await client.chat_completion(
+            messages=llm_messages,
+            tools=tools,
+            stream=True,
+            temperature=0.7,
+            max_tokens=1000
+        )
+        
+        async for chunk in stream:
+            # Handle different chunk types
+            if chunk.get("type") == "content":
+                # Text content chunk
+                chunk_data = {
+                    "type": "text",
+                    "delta": chunk.get("delta", {}),
+                    "finish_reason": chunk.get("finish_reason")
+                }
+                yield f"data: {json.dumps(chunk_data)}\n\n"
+                
+            elif chunk.get("type") == "tool_calls":
+                # Tool call chunk
+                tool_calls = chunk.get("delta", {}).get("tool_calls", [])
+                for tool_call in tool_calls:
+                    tool_call_data = {
+                        "type": "tool_call",
+                        "tool_call": {
+                            "id": tool_call.get("id"),
+                            "type": "function",
+                            "function": tool_call.get("function", {})
+                        }
+                    }
+                    yield f"data: {json.dumps(tool_call_data)}\n\n"
+                    
+                    # Simulate tool execution (mock for now)
+                    await asyncio.sleep(0.1)
+                    
+                    # Emit mock tool result
+                    tool_result = {
+                        "type": "tool_result",
+                        "tool_call_id": tool_call.get("id"),
+                        "result": f"Mock result for {tool_call.get('function', {}).get('name', 'unknown')}"
+                    }
+                    yield f"data: {json.dumps(tool_result)}\n\n"
+                    
+            elif chunk.get("type") == "error":
+                # Error chunk
+                error_data = {
+                    "type": "error",
+                    "error": chunk.get("error", "Unknown error")
+                }
+                yield f"data: {json.dumps(error_data)}\n\n"
+                return
+        
+        # Final done event
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        
+    except Exception as e:
+        # Handle any errors during streaming
+        error_data = {
+            "type": "error",
+            "error": str(e)
         }
-        
-        yield f"data: {json.dumps(chunk_data)}\n\n"
-        
-        # Simulate streaming delay
-        await asyncio.sleep(0.05)
-    
-    # Final done event
-    yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield f"data: {json.dumps(error_data)}\n\n"
 
 
 @router.post("/completions", response_model=ChatResponse)
@@ -169,17 +251,61 @@ async def chat_completions(request: ChatRequest):
         )
     else:
         # Non-streaming response
-        # TODO: Implement non-streaming chat completion
-        return ChatResponse(
-            choices=[{
-                "message": {
-                    "role": "assistant",
-                    "content": "Non-streaming response not yet implemented"
-                },
-                "finish_reason": "stop"
-            }],
-            usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
-        )
+        if not LLM_CLIENT_AVAILABLE:
+            raise HTTPException(status_code=503, detail="LLM client not available")
+        
+        try:
+            client = get_llm_client()
+            
+            # Convert messages to LLM format
+            llm_messages = [
+                LLMChatMessage(role=msg.role, content=msg.content)
+                for msg in request.messages
+            ]
+            
+            # Define tools if enabled
+            tools = None
+            if request.tools_enabled:
+                tools = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "retrieve_menu",
+                            "description": "Retrieve menu items based on query or filters",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "query": {"type": "string", "description": "Search query"},
+                                    "category": {"type": "string", "description": "Menu category filter"}
+                                }
+                            }
+                        }
+                    }
+                ]
+            
+            # Get response from LLM
+            response = await client.chat_completion(
+                messages=llm_messages,
+                tools=tools,
+                stream=False,
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            return ChatResponse(
+                choices=[{
+                    "message": {
+                        "role": "assistant",
+                        "content": response.content,
+                        "tool_calls": response.tool_calls
+                    },
+                    "finish_reason": response.finish_reason
+                }],
+                usage=response.usage
+            )
+            
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
 
 
 @router.get("/stream")

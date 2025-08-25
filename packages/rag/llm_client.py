@@ -61,7 +61,7 @@ class LLMResponse(BaseModel):
     content: str = Field(default="")
     tool_calls: Optional[List[Dict[str, Any]]] = Field(None)
     finish_reason: Optional[str] = Field(None)
-    usage: Optional[Dict[str, int]] = Field(None)
+    usage: Optional[Dict[str, Any]] = Field(None)  # Changed from int to Any to handle complex usage objects
     model: Optional[str] = Field(None)
 
 
@@ -225,11 +225,47 @@ class LLMClient:
         choice = response.choices[0]
         message = choice.message
         
+        # Handle usage data safely
+        usage_data = None
+        if response.usage:
+            try:
+                usage_data = response.usage.model_dump()
+            except Exception:
+                # Fallback to basic usage info if validation fails
+                usage_data = {
+                    "prompt_tokens": getattr(response.usage, 'prompt_tokens', 0),
+                    "completion_tokens": getattr(response.usage, 'completion_tokens', 0),
+                    "total_tokens": getattr(response.usage, 'total_tokens', 0)
+                }
+        
+        # Handle tool calls safely
+        tool_calls_data = None
+        if message.tool_calls:
+            try:
+                if hasattr(message.tool_calls, 'model_dump'):
+                    tool_calls_data = message.tool_calls.model_dump()
+                else:
+                    # Convert tool calls to dict format
+                    tool_calls_data = [
+                        {
+                            "id": tc.id,
+                            "type": tc.type,
+                            "function": {
+                                "name": tc.function.name,
+                                "arguments": tc.function.arguments
+                            }
+                        }
+                        for tc in message.tool_calls
+                    ]
+            except Exception as e:
+                logger.warning(f"Error processing tool calls: {e}")
+                tool_calls_data = None
+        
         return LLMResponse(
             content=message.content or "",
-            tool_calls=message.tool_calls.model_dump() if message.tool_calls else None,
+            tool_calls=tool_calls_data,
             finish_reason=choice.finish_reason,
-            usage=response.usage.model_dump() if response.usage else None,
+            usage=usage_data,
             model=response.model
         )
     
@@ -269,9 +305,22 @@ class LLMClient:
                         })
                     
                     if delta.tool_calls:
+                        # Convert tool calls to dict format
+                        tool_calls_data = []
+                        for tc in delta.tool_calls:
+                            tool_call_dict = {
+                                "id": getattr(tc, 'id', None),
+                                "type": getattr(tc, 'type', 'function'),
+                                "function": {
+                                    "name": getattr(tc.function, 'name', None) if tc.function else None,
+                                    "arguments": getattr(tc.function, 'arguments', None) if tc.function else None
+                                }
+                            }
+                            tool_calls_data.append(tool_call_dict)
+                        
                         chunk_data.update({
                             "type": "tool_calls",
-                            "delta": {"tool_calls": delta.tool_calls},
+                            "delta": {"tool_calls": tool_calls_data},
                             "finish_reason": choice.finish_reason
                         })
                 
