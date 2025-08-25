@@ -56,16 +56,16 @@
   - [x] Create `packages/orchestrator/outbox.py` with consumer logic
   - [x] Implement polling mechanism (100ms interval)
   - [x] Add processed_at update logic
-- [ ] Implement Redis streams
-  - [ ] Create `packages/orchestrator/redis_client.py` with connection pool
-  - [ ] Add retry logic with exponential backoff
-  - [ ] Implement stream producer for orders topic
+- [x] Implement Redis streams
+  - [x] Create `packages/orchestrator/redis_client.py` with connection pool
+  - [x] Add retry logic with exponential backoff
+  - [x] Implement stream producer for orders topic
 - [ ] Define event schema
   - [ ] Validate order_v1.json structure
   - [ ] Create Pydantic models for events
   - [ ] Add event serialization/deserialization
 
-**Progress:** 2/4 main tasks (50%)
+**Progress:** 3/4 main tasks (75%)
 **Blockers:** None
 **Notes:** Must coordinate Redis key patterns with Agent A
 
@@ -86,16 +86,16 @@
   - [x] Create `packages/rag/llm_client.py` with OpenAI client
   - [x] Add OPENAI_API_BASE override for local models
   - [x] Implement retry logic and timeout handling
-- [ ] Design tool system
-  - [ ] Validate chat_tool_v1.json schema
-  - [ ] Create `services/llm/tools/` directory structure
-  - [ ] Define tool interfaces (retrieve_menu, apply_promos, confirm)
+- [x] Design tool system
+  - [x] Validate chat_tool_v1.json schema
+  - [x] Create `services/llm/tools/` directory structure
+  - [x] Define tool interfaces (retrieve_menu, apply_promos, confirm)
 - [ ] Plan RAG architecture
   - [ ] Decision: pgvector vs Qdrant (recommend: pgvector for simplicity)
   - [ ] Create `packages/rag/embeddings.py` for vector operations
   - [ ] Design document chunking strategy
 
-**Progress:** 2/4 main tasks (50%)
+**Progress:** 3/4 main tasks (75%)
 **Blockers:** None
 **Notes:** Using pgvector (already in Postgres) instead of separate Qdrant
 
@@ -154,5 +154,5 @@ None currently.
 
 ---
 
-_Last updated: 2025-08-25 20:28:15_
+_Last updated: 2025-08-25 20:30:45_
 _Next sync: 2025-08-26 09:00_
