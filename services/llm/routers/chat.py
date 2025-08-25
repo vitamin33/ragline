@@ -28,6 +28,14 @@ except ImportError as e:
     print(f"Warning: Could not import LLM client: {e}")
     LLM_CLIENT_AVAILABLE = False
 
+# Import tool system
+try:
+    from tools.manager import get_tool_manager
+    TOOLS_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import tools: {e}")
+    TOOLS_AVAILABLE = False
+
 # Use StreamingResponse instead of EventSourceResponse for now
 try:
     from sse_starlette.sse import EventSourceResponse
@@ -116,51 +124,16 @@ async def generate_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None
         
         # Define tools if enabled
         tools = None
-        if request.tools_enabled:
-            tools = [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "retrieve_menu",
-                        "description": "Retrieve menu items based on query or filters",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "query": {"type": "string", "description": "Search query"},
-                                "category": {"type": "string", "description": "Menu category filter"}
-                            }
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "apply_promos",
-                        "description": "Apply promotional codes or discounts",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "promo_code": {"type": "string", "description": "Promotional code"},
-                                "order_id": {"type": "string", "description": "Order ID to apply promo to"}
-                            }
-                        }
-                    }
-                },
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "confirm",
-                        "description": "Confirm order or action with user",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "action": {"type": "string", "description": "Action to confirm"},
-                                "details": {"type": "object", "description": "Action details"}
-                            }
-                        }
-                    }
-                }
-            ]
+        if request.tools_enabled and TOOLS_AVAILABLE:
+            try:
+                tool_manager = get_tool_manager(
+                    tenant_id=request.tenant_id,
+                    user_id=request.user_id
+                )
+                tools = tool_manager.get_openai_functions()
+            except Exception as e:
+                print(f"Warning: Failed to load tools for streaming: {e}")
+                tools = None
         
         # Stream response from LLM
         stream = await client.chat_completion(
@@ -265,23 +238,16 @@ async def chat_completions(request: ChatRequest):
             
             # Define tools if enabled
             tools = None
-            if request.tools_enabled:
-                tools = [
-                    {
-                        "type": "function",
-                        "function": {
-                            "name": "retrieve_menu",
-                            "description": "Retrieve menu items based on query or filters",
-                            "parameters": {
-                                "type": "object",
-                                "properties": {
-                                    "query": {"type": "string", "description": "Search query"},
-                                    "category": {"type": "string", "description": "Menu category filter"}
-                                }
-                            }
-                        }
-                    }
-                ]
+            if request.tools_enabled and TOOLS_AVAILABLE:
+                try:
+                    tool_manager = get_tool_manager(
+                        tenant_id=request.tenant_id,
+                        user_id=request.user_id
+                    )
+                    tools = tool_manager.get_openai_functions()
+                except Exception as e:
+                    print(f"Warning: Failed to load tools for non-streaming: {e}")
+                    tools = None
             
             # Get response from LLM
             response = await client.chat_completion(
@@ -367,40 +333,31 @@ async def websocket_chat(websocket: WebSocket, client_id: str):
 async def list_available_tools():
     """List available tools for LLM function calling."""
     
-    return {
-        "tools": [
-            {
-                "name": "retrieve_menu",
-                "description": "Retrieve menu items based on query or filters",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query"},
-                        "category": {"type": "string", "description": "Menu category filter"}
-                    }
-                }
-            },
-            {
-                "name": "apply_promos", 
-                "description": "Apply promotional codes or discounts",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "promo_code": {"type": "string", "description": "Promotional code"},
-                        "order_id": {"type": "string", "description": "Order ID to apply promo to"}
-                    }
-                }
-            },
-            {
-                "name": "confirm",
-                "description": "Confirm order or action with user",
-                "parameters": {
-                    "type": "object", 
-                    "properties": {
-                        "action": {"type": "string", "description": "Action to confirm"},
-                        "details": {"type": "object", "description": "Action details"}
-                    }
-                }
-            }
-        ]
-    }
+    if not TOOLS_AVAILABLE:
+        return {"error": "Tools system not available", "tools": []}
+    
+    try:
+        # Get tool manager
+        tool_manager = get_tool_manager()
+        
+        # Get tools schema
+        schema = tool_manager.get_tools_schema()
+        
+        # Format for API response
+        tools_list = []
+        for tool_name, tool_info in schema["tools"].items():
+            if "error" not in tool_info:
+                tools_list.append({
+                    "name": tool_info["name"],
+                    "description": tool_info["description"],
+                    "parameters": tool_info["schema"]
+                })
+        
+        return {
+            "tools": tools_list,
+            "total_count": len(tools_list),
+            "openai_functions": tool_manager.get_openai_functions()
+        }
+        
+    except Exception as e:
+        return {"error": f"Failed to load tools: {str(e)}", "tools": []}
