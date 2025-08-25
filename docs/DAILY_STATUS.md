@@ -18,10 +18,10 @@
 
 ### Tasks
 
-- [ ] Bootstrap FastAPI application structure
-  - [ ] Create `services/api/main.py` with app initialization
-  - [ ] Set up `services/api/routers/` directory structure
-  - [ ] Configure CORS, middleware, exception handlers
+- [x] Bootstrap FastAPI application structure
+  - [x] Create `services/api/main.py` with app initialization
+  - [x] Set up `services/api/routers/` directory structure
+  - [x] Configure CORS, middleware, exception handlers
 - [ ] Implement JWT authentication
   - [ ] Create `packages/security/jwt.py` with token generation
   - [ ] Add `packages/security/auth.py` with login/verify logic
@@ -35,7 +35,7 @@
   - [x] Create initial migration with all tables
   - [x] Test upgrade/downgrade commands
 
-**Progress:** 2/4 main tasks (50%)
+**Progress:** 3/4 main tasks (75%)
 **Blockers:** None
 **Notes:** Outbox table schema must be shared with Agent B by 14:00
 
@@ -48,10 +48,10 @@
 
 ### Tasks
 
-- [ ] Setup Celery configuration
-  - [ ] Create `services/worker/celery_app.py` with app config
-  - [ ] Configure IO pool and Process pool in `services/worker/config.py`
-  - [ ] Add basic health check task
+- [x] Setup Celery configuration
+  - [x] Create `services/worker/celery_app.py` with app config
+  - [x] Configure IO pool and Process pool in `services/worker/config.py`
+  - [x] Add basic health check task
 - [ ] Design outbox consumer
   - [ ] Create `packages/orchestrator/outbox.py` with consumer logic
   - [ ] Implement polling mechanism (100ms interval)
@@ -65,7 +65,7 @@
   - [ ] Create Pydantic models for events
   - [ ] Add event serialization/deserialization
 
-**Progress:** 0/4 main tasks (0%)
+**Progress:** 1/4 main tasks (25%)
 **Blockers:** None
 **Notes:** Must coordinate Redis key patterns with Agent A
 
@@ -78,10 +78,10 @@
 
 ### Tasks
 
-- [ ] Setup LLM service structure
-  - [ ] Create `services/llm/main.py` with FastAPI app
-  - [ ] Add `services/llm/routers/chat.py` for chat endpoint
-  - [ ] Configure SSE/WebSocket support
+- [x] Setup LLM service structure
+  - [x] Create `services/llm/main.py` with FastAPI app
+  - [x] Add `services/llm/routers/chat.py` for chat endpoint
+  - [x] Configure SSE/WebSocket support
 - [ ] Configure LLM client
   - [ ] Create `packages/rag/llm_client.py` with OpenAI client
   - [ ] Add OPENAI_API_BASE override for local models
@@ -95,7 +95,7 @@
   - [ ] Create `packages/rag/embeddings.py` for vector operations
   - [ ] Design document chunking strategy
 
-**Progress:** 0/4 main tasks (0%)
+**Progress:** 1/4 main tasks (25%)
 **Blockers:** None
 **Notes:** Using pgvector (already in Postgres) instead of separate Qdrant
 
@@ -154,5 +154,5 @@ None currently.
 
 ---
 
-_Last updated: 2025-08-24 20:22:30_
+_Last updated: 2025-08-24 20:25:45_
 _Next sync: 2025-08-25 09:00_
