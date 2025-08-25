@@ -22,10 +22,10 @@
   - [x] Create `services/api/main.py` with app initialization
   - [x] Set up `services/api/routers/` directory structure
   - [x] Configure CORS, middleware, exception handlers
-- [ ] Implement JWT authentication
-  - [ ] Create `packages/security/jwt.py` with token generation
-  - [ ] Add `packages/security/auth.py` with login/verify logic
-  - [ ] Include tenant_id and roles in JWT claims
+- [x] Implement JWT authentication
+  - [x] Create `packages/security/jwt.py` with token generation
+  - [x] Add `packages/security/auth.py` with login/verify logic
+  - [x] Include tenant_id and roles in JWT claims
 - [x] Define SQLAlchemy 2.0 models
   - [x] Create `packages/db/models.py` with base models
   - [x] Define Tenant, User, Product, Order, Outbox tables
@@ -35,7 +35,7 @@
   - [x] Create initial migration with all tables
   - [x] Test upgrade/downgrade commands
 
-**Progress:** 3/4 main tasks (75%)
+**Progress:** 4/4 main tasks (100%)
 **Blockers:** None
 **Notes:** Outbox table schema must be shared with Agent B by 14:00
 
@@ -52,10 +52,10 @@
   - [x] Create `services/worker/celery_app.py` with app config
   - [x] Configure IO pool and Process pool in `services/worker/config.py`
   - [x] Add basic health check task
-- [ ] Design outbox consumer
-  - [ ] Create `packages/orchestrator/outbox.py` with consumer logic
-  - [ ] Implement polling mechanism (100ms interval)
-  - [ ] Add processed_at update logic
+- [x] Design outbox consumer
+  - [x] Create `packages/orchestrator/outbox.py` with consumer logic
+  - [x] Implement polling mechanism (100ms interval)
+  - [x] Add processed_at update logic
 - [ ] Implement Redis streams
   - [ ] Create `packages/orchestrator/redis_client.py` with connection pool
   - [ ] Add retry logic with exponential backoff
@@ -65,7 +65,7 @@
   - [ ] Create Pydantic models for events
   - [ ] Add event serialization/deserialization
 
-**Progress:** 1/4 main tasks (25%)
+**Progress:** 2/4 main tasks (50%)
 **Blockers:** None
 **Notes:** Must coordinate Redis key patterns with Agent A
 
@@ -82,10 +82,10 @@
   - [x] Create `services/llm/main.py` with FastAPI app
   - [x] Add `services/llm/routers/chat.py` for chat endpoint
   - [x] Configure SSE/WebSocket support
-- [ ] Configure LLM client
-  - [ ] Create `packages/rag/llm_client.py` with OpenAI client
-  - [ ] Add OPENAI_API_BASE override for local models
-  - [ ] Implement retry logic and timeout handling
+- [x] Configure LLM client
+  - [x] Create `packages/rag/llm_client.py` with OpenAI client
+  - [x] Add OPENAI_API_BASE override for local models
+  - [x] Implement retry logic and timeout handling
 - [ ] Design tool system
   - [ ] Validate chat_tool_v1.json schema
   - [ ] Create `services/llm/tools/` directory structure
@@ -95,7 +95,7 @@
   - [ ] Create `packages/rag/embeddings.py` for vector operations
   - [ ] Design document chunking strategy
 
-**Progress:** 1/4 main tasks (25%)
+**Progress:** 2/4 main tasks (50%)
 **Blockers:** None
 **Notes:** Using pgvector (already in Postgres) instead of separate Qdrant
 
@@ -154,5 +154,5 @@ None currently.
 
 ---
 
-_Last updated: 2025-08-24 20:25:45_
+_Last updated: 2025-08-24 20:28:15_
 _Next sync: 2025-08-25 09:00_
