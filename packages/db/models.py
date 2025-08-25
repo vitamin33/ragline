@@ -52,7 +52,7 @@ class Product(Base, TimestampMixin):
     description: Mapped[Optional[str]] = mapped_column(Text)
     price: Mapped[int] = mapped_column(Integer, nullable=False)  # Price in cents
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON)
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON)
     
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="products")
     order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="product")
@@ -67,7 +67,7 @@ class Order(Base, TimestampMixin):
     status: Mapped[str] = mapped_column(String(50), default="pending")
     total_amount: Mapped[int] = mapped_column(Integer, nullable=False)  # Total in cents
     currency: Mapped[str] = mapped_column(String(3), default="USD")
-    metadata: Mapped[Optional[dict]] = mapped_column(JSON)
+    extra_data: Mapped[Optional[dict]] = mapped_column(JSON)
     
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="orders")
     user: Mapped["User"] = relationship("User", back_populates="orders")
