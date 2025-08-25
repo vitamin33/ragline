@@ -1,4 +1,6 @@
 # Python
+.venv/
+*.pyc
 __pycache__/
 *.py[cod]
 *$py.class
@@ -29,6 +31,7 @@ MANIFEST
 
 # Virtual environments
 .venv/
+
 env/
 venv/
 ENV/
