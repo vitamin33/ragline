@@ -1,35 +1,105 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chat Tool Event Schema v1.0",
+  "description": "Schema for LLM tool call events in RAGline chat system",
   "type": "object",
   "required": ["event", "version", "tool", "args", "latency_ms", "ts"],
   "properties": {
     "event": {
       "type": "string",
-      "enum": ["tool_call"]
+      "enum": ["tool_call"],
+      "description": "Event type identifier"
     },
     "version": {
       "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+$"
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Schema version (e.g., '1.0')"
     },
     "tool": {
       "type": "string",
-      "enum": ["retrieve_menu", "apply_promos", "confirm"]
+      "enum": ["retrieve_menu", "apply_promos", "confirm"],
+      "description": "Tool function name"
     },
     "args": {
       "type": "object",
-      "properties": {
-        "sku": {
-          "type": "string"
+      "description": "Tool-specific arguments",
+      "oneOf": [
+        {
+          "title": "retrieve_menu args",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query for menu items"
+            },
+            "category": {
+              "type": "string",
+              "description": "Menu category filter"
+            },
+            "dietary_restrictions": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Dietary restrictions (vegetarian, vegan, gluten-free, etc.)"
+            }
+          }
+        },
+        {
+          "title": "apply_promos args",
+          "properties": {
+            "promo_code": {
+              "type": "string",
+              "description": "Promotional code to apply"
+            },
+            "order_id": {
+              "type": "string",
+              "description": "Order ID to apply promotion to"
+            }
+          },
+          "required": ["promo_code"]
+        },
+        {
+          "title": "confirm args",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": ["place_order", "cancel_order", "modify_order", "apply_discount"],
+              "description": "Action to confirm"
+            },
+            "details": {
+              "type": "object",
+              "description": "Action-specific details",
+              "properties": {
+                "order_id": {"type": "string"},
+                "items": {"type": "array"},
+                "total": {"type": "number", "minimum": 0}
+              }
+            }
+          },
+          "required": ["action"]
         }
-      }
+      ]
     },
     "latency_ms": {
       "type": "number",
-      "minimum": 0
+      "minimum": 0,
+      "description": "Tool execution time in milliseconds"
     },
     "ts": {
       "type": "string",
-      "format": "date-time"
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of the tool call"
+    },
+    "tenant_id": {
+      "type": "string",
+      "description": "Tenant identifier for multi-tenancy"
+    },
+    "user_id": {
+      "type": "string", 
+      "description": "User identifier"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Chat session identifier"
     }
-  }
+  },
+  "additionalProperties": false
 }
