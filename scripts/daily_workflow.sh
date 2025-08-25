@@ -3,7 +3,14 @@
 
 set -e
 
-MAIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Determine the main repository directory
+# If we're in an agent worktree, point to the main ragline repo
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ "$(basename "$(pwd)")" =~ ragline-[abc] ]]; then
+    MAIN_DIR="$(cd "$(dirname "$(pwd)")/ragline" && pwd)"
+else
+    MAIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+fi
 
 echo "==============================="
 echo "  RAGline Daily Workflow"
@@ -123,7 +130,36 @@ for file in contracts/events/*.json; do
     if [ -f "$MAIN_DIR/docs/DAILY_STATUS.md" ]; then
         echo "Today's Tasks:"
         echo "--------------"
-        head -30 "$MAIN_DIR/docs/DAILY_STATUS.md" | grep -A 20 "^### 🎯 Today's Goals" || echo "  No daily status found"
+        
+        # Detect current agent and show specific tasks
+        DIR_NAME=$(basename "$(pwd)")
+        case "$DIR_NAME" in
+            ragline-a)
+                echo "📋 General Goals:"
+                grep -A 4 "^### 🎯 Today's Goals" "$MAIN_DIR/docs/DAILY_STATUS.md" | tail -n +2 | head -n 4
+                echo ""
+                echo "🎯 Your Specific Tasks (Agent A):"
+                awk "/## 📋 Agent A/,/^---$/" "$MAIN_DIR/docs/DAILY_STATUS.md"
+                ;;
+            ragline-b)
+                echo "📋 General Goals:"
+                grep -A 4 "^### 🎯 Today's Goals" "$MAIN_DIR/docs/DAILY_STATUS.md" | tail -n +2 | head -n 4
+                echo ""
+                echo "🎯 Your Specific Tasks (Agent B):"
+                awk "/## 📋 Agent B/,/^---$/" "$MAIN_DIR/docs/DAILY_STATUS.md"
+                ;;
+            ragline-c)
+                echo "📋 General Goals:"
+                grep -A 4 "^### 🎯 Today's Goals" "$MAIN_DIR/docs/DAILY_STATUS.md" | tail -n +2 | head -n 4
+                echo ""
+                echo "🎯 Your Specific Tasks (Agent C):"
+                awk "/## 📋 Agent C/,/^---$/" "$MAIN_DIR/docs/DAILY_STATUS.md"
+                ;;
+            *)
+                # Default: show all goals and first agent as example
+                head -30 "$MAIN_DIR/docs/DAILY_STATUS.md" | grep -A 20 "^### 🎯 Today's Goals" || echo "  No daily status found"
+                ;;
+        esac
     fi
 }
 
