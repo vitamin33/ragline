@@ -8,15 +8,15 @@
 
 ## Agent Ownership
 
-- **Agent A (feat/core-api)**: services/api/, packages/db/, contracts/openapi.yaml
+- **Agent A (feat/core-api)**: services/api/, packages/db/, packages/security/, packages/cache/, contracts/openapi.yaml
 - **Agent B (feat/reliability)**: services/worker/, packages/orchestrator/, contracts/events/order_v1.json
 - **Agent C (feat/llm)**: services/llm/, packages/rag/, contracts/events/chat_tool_v1.json
 
 ## Daily Workflow
 
 ```bash
-# Morning sync
-git fetch origin && git rebase origin/main
+# Morning sync (use the script!)
+./scripts/merge_workflow.sh sync
 
 # Track progress
 ./scripts/track_progress.sh complete [A|B|C] "task"
@@ -24,19 +24,30 @@ git fetch origin && git rebase origin/main
 # Commit (NO CO-AUTHORS!)
 git add . && git commit -m "feat(scope): description"
 
-Project Structure
+# Push changes
+git push origin feat/[branch-name]
 
-FastAPI for APIs (port 8000 for API, 8001 for LLM)
-Celery for workers
-Redis for caching/streams
-PostgreSQL with pgvector
-Prometheus metrics (prefix: ragline_)
+# Evening merge (if ready)
+./scripts/merge_workflow.sh merge [a|b|c]
+Quick References
 
-Today's Critical Path
+Architecture: See docs/ARCHITECTURE.md for full system design
+Daily Tasks: See docs/DAILY_STATUS.md for current sprint
+API Ports: API=8000, LLM=8001, Prometheus=9090, Grafana=3000
+Metrics Prefix: All metrics use ragline_ prefix
+Redis Keys: Format ragline:{tenant_id}:{type}:{id}
 
-Agent A: SQLAlchemy models (BLOCKS Agent B at 14:00)
-Agent B: Waiting for Outbox table schema
-Agent C: Independent LLM service setup
+Integration Points
 
-See docs/DAILY_STATUS.md for detailed tasks.
+Agent A → B: Outbox table for event sourcing
+Agent B → All: Event streaming via Redis
+Agent C → A: API calls for tool execution
+
+Commands
+bashjust up      # Start infrastructure
+just dev     # Run all services
+just test    # Run tests
+./scripts/daily_workflow.sh morning   # Morning checks
+./scripts/track_progress.sh show      # Check progress
+./scripts/merge_workflow.sh sync      # Sync all agents with main
 ```
