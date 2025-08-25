@@ -2,9 +2,9 @@
 
 ## Critical Rules
 
-1. **NEVER add co-author tags to commits**
+1. **ABSOLUTELY NEVER add co-author tags, "Generated with Claude Code", or any AI attribution to commits - EVER!**
 2. **Stay within ownership boundaries**
-3. **Commit format**: `feat(scope): description`
+3. **Commit format**: `feat(scope): description` - NO additional lines or signatures
 
 ## Agent Ownership
 
@@ -21,7 +21,7 @@
 # Track progress
 ./scripts/track_progress.sh complete [A|B|C] "task"
 
-# Commit (NO CO-AUTHORS!)
+# Commit (SIMPLE MESSAGE ONLY - NO AI ATTRIBUTION!)
 git add . && git commit -m "feat(scope): description"
 
 # Push changes
