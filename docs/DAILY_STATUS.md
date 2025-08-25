@@ -27,15 +27,15 @@
   - [ ] Add `packages/security/auth.py` with login/verify logic
   - [ ] Include tenant_id and roles in JWT claims
 - [x] Define SQLAlchemy 2.0 models
-  - [ ] Create `packages/db/models.py` with base models
-  - [ ] Define Tenant, User, Product, Order, Outbox tables
-  - [ ] Set up `packages/db/database.py` with async session
-- [ ] Initialize Alembic
-  - [ ] Run `alembic init` in packages/db/
-  - [ ] Create initial migration with all tables
-  - [ ] Test upgrade/downgrade commands
+  - [x] Create `packages/db/models.py` with base models
+  - [x] Define Tenant, User, Product, Order, Outbox tables
+  - [x] Set up `packages/db/database.py` with async session
+- [x] Initialize Alembic
+  - [x] Run `alembic init` in packages/db/
+  - [x] Create initial migration with all tables
+  - [x] Test upgrade/downgrade commands
 
-**Progress:** 1/4 main tasks (25%)
+**Progress:** 2/4 main tasks (50%)
 **Blockers:** None
 **Notes:** Outbox table schema must be shared with Agent B by 14:00
 
@@ -154,5 +154,5 @@ None currently.
 
 ---
 
-_Last updated: 2025-08-24 20:18:45_
+_Last updated: 2025-08-24 20:22:30_
 _Next sync: 2025-08-25 09:00_

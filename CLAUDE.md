@@ -51,3 +51,19 @@ just test    # Run tests
 ./scripts/track_progress.sh show      # Check progress
 ./scripts/merge_workflow.sh sync      # Sync all agents with main
 ```
+
+## Virtual Environment Setup
+
+Each agent worktree should have ONE virtual environment at its root:
+
+```bash
+# Initial setup (once per worktree)
+cd ../ragline-[a|b|c]
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -r ../ragline/requirements.txt
+
+# Daily use
+cd ../ragline-[a|b|c]
+source .venv/bin/activate
+```
