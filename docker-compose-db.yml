@@ -1,0 +1,23 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: ankane/pgvector
+    container_name: ragline-postgres
+    environment:
+      POSTGRES_DB: ragline
+      POSTGRES_USER: ragline_user
+      POSTGRES_PASSWORD: secure_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "5433:5432"
+    volumes:
+      - ragline_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ragline_user -d ragline"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ragline_postgres_data:
