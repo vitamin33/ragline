@@ -1,8 +1,11 @@
-.PHONY: help test lint type sec validate-contracts setup-all test-all
+.PHONY: help test test-unit test-integration lint type sec validate-contracts setup-all test-all
 
 help:
 	@echo "RAGline Development Commands"
 	@echo "  make setup-all      - Setup all worktree environments"
+	@echo "  make test           - Run all tests (unit + integration)"
+	@echo "  make test-unit      - Run unit tests only"
+	@echo "  make test-integration - Run integration tests only"
 	@echo "  make test-all       - Run all agent tests"
 	@echo "  make lint           - Run linting"
 	@echo "  make type           - Run type checking"
@@ -20,7 +23,17 @@ setup-all:
 	done
 
 test:
-	pytest tests/ -v --cov=services --cov=packages --cov-report=term-missing
+	@echo "Running RAGline comprehensive test suite..."
+	@source .venv/bin/activate && python tests/run_tests.py
+
+test-unit:
+	@echo "Running unit tests only..."
+	@source .venv/bin/activate && python tests/unit/test_jwt_auth.py
+
+test-integration:
+	@echo "Running integration tests only..."
+	@echo "⚠️  Make sure server is running: source .venv/bin/activate && cd services/api && python main.py"
+	@source .venv/bin/activate && python tests/integration/test_api_endpoints.py
 
 test-all:
 	@echo "Running tests for all agents..."

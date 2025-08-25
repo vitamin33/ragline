@@ -1,0 +1,1 @@
+# Integration Tests - Test component interactions and API endpoints

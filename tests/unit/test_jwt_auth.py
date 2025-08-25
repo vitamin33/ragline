@@ -7,7 +7,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 # Add project root to path
-sys.path.insert(0, os.path.dirname(__file__))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from packages.security.jwt import JWTManager, TokenData
 from packages.security.auth import AuthService
