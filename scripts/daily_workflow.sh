@@ -3,6 +3,10 @@
 
 set -e
 
+# Capture original directory before any cd commands
+ORIGINAL_DIR="$(pwd)"
+ORIGINAL_DIR_NAME=$(basename "$ORIGINAL_DIR")
+
 # Determine the main repository directory
 # If we're in an agent worktree, point to the main ragline repo
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -131,10 +135,9 @@ for file in contracts/events/*.json; do
         echo "Today's Tasks:"
         echo "--------------"
         
-        # Detect current agent and show specific tasks
-        DIR_NAME=$(basename "$(pwd)")
-        echo "DEBUG: DIR_NAME='$DIR_NAME'" >&2
-        case "$DIR_NAME" in
+        # Detect current agent and show specific tasks using original directory
+        echo "DEBUG: ORIGINAL_DIR_NAME='$ORIGINAL_DIR_NAME'" >&2
+        case "$ORIGINAL_DIR_NAME" in
             ragline-a)
                 echo "📋 General Goals:"
                 grep -A 4 "^### 🎯 Today's Goals" "$MAIN_DIR/docs/DAILY_STATUS.md" | tail -n +2 | head -n 4
