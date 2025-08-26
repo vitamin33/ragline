@@ -5,7 +5,7 @@ Tool for confirming user actions and orders.
 Handles order confirmation, cancellation, and modification approvals.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
 from .base import BaseTool, ToolError
 
@@ -124,7 +124,22 @@ class ConfirmTool(BaseTool):
             "timestamp": datetime.now().isoformat(),
             "tenant_id": self.tenant_id,
             "user_id": self.user_id,
-            "requires_user_approval": require_confirmation
+            "requires_user_approval": require_confirmation,
+            "context": {
+                "tool_execution": {
+                    "tool_name": "confirm",
+                    "action_type": action,
+                    "tenant_context": self.tenant_id,
+                    "user_context": self.user_id,
+                    "timestamp": datetime.now().isoformat()
+                },
+                "business_context": {
+                    "confirmation_workflow": f"{action} confirmation initiated",
+                    "approval_required": require_confirmation,
+                    "processing_steps": self._get_processing_steps(action, details)
+                },
+                "customer_guidance": self._get_customer_guidance(action, details)
+            }
         })
         
         return confirmation_data
@@ -274,3 +289,64 @@ class ConfirmTool(BaseTool):
                 "Add item to order"
             ]
         }
+    
+    def _get_processing_steps(self, action: str, details: Dict[str, Any]) -> List[str]:
+        """Get processing steps for the action."""
+        
+        steps_map = {
+            "place_order": [
+                "Validate order details and availability",
+                "Process payment authorization",
+                "Send order to kitchen for preparation",
+                "Generate order confirmation and tracking"
+            ],
+            "cancel_order": [
+                "Verify order is cancellable",
+                "Process refund authorization",
+                "Notify kitchen to stop preparation",
+                "Send cancellation confirmation"
+            ],
+            "modify_order": [
+                "Check modification feasibility",
+                "Calculate price adjustments",
+                "Update order in system",
+                "Confirm changes with customer"
+            ]
+        }
+        
+        return steps_map.get(action, [
+            "Process customer request",
+            "Validate business rules", 
+            "Execute action",
+            "Provide confirmation"
+        ])
+    
+    def _get_customer_guidance(self, action: str, details: Dict[str, Any]) -> List[str]:
+        """Get customer guidance for the action."""
+        
+        guidance_map = {
+            "place_order": [
+                "Please review your order details carefully",
+                "Ensure delivery address is correct",
+                "Payment will be processed upon confirmation",
+                "You'll receive order tracking information"
+            ],
+            "cancel_order": [
+                "Cancellation may not be possible if preparation has started",
+                "Refunds typically process within 3-5 business days",
+                "You'll receive cancellation confirmation via email",
+                "Contact support for urgent cancellation requests"
+            ],
+            "modify_order": [
+                "Order modifications have a 5-minute window",
+                "Price changes will be calculated automatically",
+                "Complex changes may require order cancellation and re-placing",
+                "Kitchen will be notified of any modifications"
+            ]
+        }
+        
+        return guidance_map.get(action, [
+            "Please confirm your request",
+            "Review all details before proceeding",
+            "Contact support if you need assistance"
+        ])

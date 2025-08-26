@@ -171,7 +171,26 @@ class ApplyPromosTool(BaseTool):
                 "final_total": round(discounted_total, 2),
                 "savings_percentage": round((discount_amount / order_total) * 100, 1) if order_total > 0 else 0
             },
-            "message": f"Successfully applied promo code '{promo_code}' for ${discount_amount:.2f} off!"
+            "message": f"Successfully applied promo code '{promo_code}' for ${discount_amount:.2f} off!",
+            "context": {
+                "tool_execution": {
+                    "tool_name": "apply_promos",
+                    "tenant_id": self.tenant_id,
+                    "user_id": self.user_id,
+                    "timestamp": "now"
+                },
+                "business_context": {
+                    "promo_eligibility": f"Order ${order_total:.2f} meets minimum ${promo['min_order']:.2f}",
+                    "discount_calculation": f"{promo['value']}{'%' if promo['type'] == 'percentage' else ' fixed'} discount applied",
+                    "savings_achieved": f"Customer saved ${discount_amount:.2f} ({round((discount_amount / order_total) * 100, 1)}%)"
+                },
+                "next_steps": [
+                    "Promo code successfully validated and applied",
+                    "Order total updated with discount",
+                    "Customer can proceed to checkout",
+                    f"Final amount: ${discounted_total:.2f}"
+                ]
+            }
         }
         
         return result
