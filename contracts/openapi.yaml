@@ -125,6 +125,8 @@ paths:
       summary: List Products
       description: List products with pagination and filtering.
       operationId: list_products_v1_products__get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: skip
         in: query
@@ -173,6 +175,8 @@ paths:
       summary: Create Product
       description: Create a new product.
       operationId: create_product_v1_products__post
+      security:
+      - HTTPBearer: []
       requestBody:
         required: true
         content:
@@ -199,6 +203,8 @@ paths:
       summary: Get Product
       description: Get a specific product by ID.
       operationId: get_product_v1_products__product_id__get
+      security:
+      - HTTPBearer: []
       parameters:
       - name: product_id
         in: path
@@ -225,6 +231,8 @@ paths:
       summary: Update Product
       description: Update a specific product.
       operationId: update_product_v1_products__product_id__put
+      security:
+      - HTTPBearer: []
       parameters:
       - name: product_id
         in: path
