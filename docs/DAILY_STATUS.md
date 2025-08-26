@@ -1,121 +1,110 @@
 # RAGline Daily Status
 
-## Current Sprint: Day 1 - 2025-08-25
+## Current Sprint: Day 2 - 2025-08-26
 
 ### 🎯 Today's Goals
 
-- Set up development environment for all agents
-- Define and validate all contracts (OpenAPI, events)
-- Bootstrap basic structure for each service
-- Establish integration patterns
+- Implement core CRUD operations with caching
+- Establish event streaming pipeline
+- Create integration tests for cross-service communication
+- Begin observability implementation
 
 ---
 
 ## 📋 Agent A (Core API & Data)
 
 **Branch:** `feat/core-api`
-**Focus:** FastAPI, SQLAlchemy, JWT, Redis caching
+**Focus:** Product CRUD, Redis caching, idempotency
 
 ### Tasks
 
-- [x] Bootstrap FastAPI application structure
-  - [x] Create `services/api/main.py` with app initialization
-  - [x] Set up `services/api/routers/` directory structure
-  - [x] Configure CORS, middleware, exception handlers
-- [x] Implement JWT authentication
-  - [x] Create `packages/security/jwt.py` with token generation
-  - [x] Add `packages/security/auth.py` with login/verify logic
-  - [x] Include tenant_id and roles in JWT claims
-- [x] Define SQLAlchemy 2.0 models
-  - [x] Create `packages/db/models.py` with base models
-  - [x] Define Tenant, User, Product, Order, Outbox tables
-  - [x] Set up `packages/db/database.py` with async session
-- [x] Initialize Alembic
-  - [x] Run `alembic init` in packages/db/
-  - [x] Create initial migration with all tables
-  - [x] Test upgrade/downgrade commands
+- [ ] Product CRUD operations
+  - [ ] GET /v1/products - list with pagination and filters
+  - [ ] GET /v1/products/{id} - single product with cache-aside
+  - [ ] POST /v1/products - create with validation
+  - [ ] PUT /v1/products/{id} - update with cache invalidation
+- [ ] Redis caching implementation
+  - [ ] Create `packages/cache/redis_cache.py`
+  - [ ] Implement cache-aside pattern with TTL jitter
+  - [ ] Add stampede protection with distributed locks
+- [ ] Order idempotency
+  - [ ] POST /v1/orders with Idempotency-Key header
+  - [ ] Implement UPSERT pattern for duplicate requests
+  - [ ] Store response in orders.response_json
 
-**Progress:** 4/4 main tasks (100%)
+**Progress:** 0/3 main tasks (0%)
 **Blockers:** None
-**Notes:** Outbox table schema must be shared with Agent B by 14:00
+**Notes:** Cache key pattern: ragline:{tenant_id}:product:{id}
 
 ---
 
 ## 📋 Agent B (Reliability & Events)
 
 **Branch:** `feat/reliability`
-**Focus:** Celery, Redis Streams, Event orchestration
+**Focus:** Outbox consumer, SSE/WS notifier
 
 ### Tasks
 
-- [x] Setup Celery configuration
-  - [x] Create `services/worker/celery_app.py` with app config
-  - [x] Configure IO pool and Process pool in `services/worker/config.py`
-  - [x] Add basic health check task
-- [x] Design outbox consumer
-  - [x] Create `packages/orchestrator/outbox.py` with consumer logic
-  - [x] Implement polling mechanism (100ms interval)
-  - [x] Add processed_at update logic
-- [x] Implement Redis streams
-  - [x] Create `packages/orchestrator/redis_client.py` with connection pool
-  - [x] Add retry logic with exponential backoff
-  - [x] Implement stream producer for orders topic
-- [x] Define event schema
-  - [x] Validate order_v1.json structure
-  - [x] Create Pydantic models for events
-  - [x] Add event serialization/deserialization
+- [ ] Outbox consumer daemon
+  - [ ] Start consumer task with Celery beat
+  - [ ] Process outbox entries to Redis streams
+  - [ ] Update processed_at timestamps
+- [ ] SSE/WebSocket notifier
+  - [ ] Create `services/worker/tasks/notifications.py`
+  - [ ] Subscribe to Redis streams
+  - [ ] Fan-out to connected SSE/WS clients
+- [ ] Integration testing
+  - [ ] Test outbox → stream → notifier pipeline
+  - [ ] Verify event ordering guarantees
+  - [ ] Load test with multiple consumers
 
-**Progress:** 4/4 main tasks (100%)
-**Blockers:** None
-**Notes:** Must coordinate Redis key patterns with Agent A
+**Progress:** 0/3 main tasks (0%)
+**Blockers:** Needs database running for outbox table
+**Notes:** Stream key: ragline:stream:orders
 
 ---
 
 ## 📋 Agent C (LLM & RAG)
 
 **Branch:** `feat/llm`
-**Focus:** LLM orchestration, RAG, Streaming
+**Focus:** Streaming chat, RAG data ingestion
 
 ### Tasks
 
-- [x] Setup LLM service structure
-  - [x] Create `services/llm/main.py` with FastAPI app
-  - [x] Add `services/llm/routers/chat.py` for chat endpoint
-  - [x] Configure SSE/WebSocket support
-- [x] Configure LLM client
-  - [x] Create `packages/rag/llm_client.py` with OpenAI client
-  - [x] Add OPENAI_API_BASE override for local models
-  - [x] Implement retry logic and timeout handling
-- [x] Design tool system
-  - [x] Validate chat_tool_v1.json schema
-  - [x] Create `services/llm/tools/` directory structure
-  - [x] Define tool interfaces (retrieve_menu, apply_promos, confirm)
-- [x] Plan RAG architecture
-  - [x] Decision: pgvector vs Qdrant (recommend: pgvector for simplicity)
-  - [x] Create `packages/rag/embeddings.py` for vector operations
-  - [x] Design document chunking strategy
+- [ ] Streaming chat improvements
+  - [ ] Enhance SSE streaming with proper buffering
+  - [ ] Add conversation memory management
+  - [ ] Implement token counting and limits
+- [ ] RAG data ingestion
+  - [ ] Set up pgvector tables (coordinate with Agent A)
+  - [ ] Ingest sample menu items with embeddings
+  - [ ] Test similarity search queries
+- [ ] Tool-RAG integration
+  - [ ] Connect retrieve_menu tool to RAG search
+  - [ ] Add context to tool responses
+  - [ ] Implement relevance scoring
 
-**Progress:** 4/4 main tasks (100%)
-**Blockers:** None
-**Notes:** Using pgvector (already in Postgres) instead of separate Qdrant
+**Progress:** 0/3 main tasks (0%)
+**Blockers:** Needs pgvector extension in database
+**Notes:** Embedding dimension: 1536 (OpenAI)
 
 ---
 
 ## 🔄 Integration Checkpoints
 
-| Time  | Checkpoint      | Status     | Details                              |
-| ----- | --------------- | ---------- | ------------------------------------ |
-| 09:00 | Contract Review | ⏳ Pending | All agents review contracts together |
-| 11:00 | Data Model Sync | ⏳ Pending | Agent A shares SQLAlchemy models     |
-| 14:00 | Outbox Handoff  | ✅ Done    | Agent A → Agent B schema sharing     |
-| 16:00 | Redis Patterns  | ⏳ Pending | Agree on key naming conventions      |
-| 18:00 | Daily Merge     | ⏳ Pending | Push all branches, update status     |
+| Time  | Checkpoint     | Status     | Details                                 |
+| ----- | -------------- | ---------- | --------------------------------------- |
+| 09:00 | Database Setup | ⏳ Pending | Ensure PostgreSQL with pgvector running |
+| 11:00 | Cache Testing  | ⏳ Pending | Agent A demonstrates caching            |
+| 14:00 | Event Flow     | ⏳ Pending | Agent B shows outbox → stream flow      |
+| 16:00 | RAG Demo       | ⏳ Pending | Agent C demonstrates vector search      |
+| 18:00 | Daily Merge    | ⏳ Pending | Merge and integration test              |
 
 ---
 
 ## 📊 Overall Progress
 
-**Total Tasks:** 12/12 completed (100%)
+**Total Tasks:** 0/9 completed (0%)
 **On Track:** ✅ Yes
 **Risk Level:** 🟢 Low
 
@@ -123,36 +112,35 @@
 
 ## 🚧 Active Blockers
 
-None currently.
+- Database with pgvector needed for full testing
 
 ---
 
 ## 📝 Decisions Made
 
-1. **Database:** PostgreSQL with pgvector extension (no separate Qdrant)
-2. **Auth:** JWT with tenant_id, user_id, roles[] claims
-3. **Events:** Redis Streams for event bus
-4. **Caching:** Redis with cache-aside pattern
-5. **API:** FastAPI with async/await throughout
+1. Cache TTL: 5 minutes with 0-60s jitter
+2. Idempotency window: 24 hours
+3. Stream consumer group: ragline-notifier-group
+4. Embedding model: text-embedding-3-small
 
 ---
 
-## 🔮 Tomorrow's Priority (Day 2)
+## 🔮 Tomorrow's Priority (Day 3)
 
-- **Agent A:** Product CRUD with Redis caching, idempotency implementation
-- **Agent B:** Outbox consumer running, SSE/WS notifier basics
-- **Agent C:** Streaming chat endpoint, basic RAG ingestion
+- **Agent A:** Order creation with idempotency, SSE endpoints
+- **Agent B:** Outbox → Streams pipeline testing
+- **Agent C:** Tool calling framework completion
 
 ---
 
 ## 📌 Important Notes
 
-- All agents must install requirements.txt from main repo
-- No "Co-authored-with" in any commits
-- Follow commit format: `feat(scope): description`
-- Contracts are immutable once agreed upon
+- Day 1 complete: All foundational components ready
+- Database setup critical for Day 2 progress
+- Integration testing becomes priority
 
 ---
 
-_Last updated: 2025-08-25 20:32:00_
-_Next sync: 2025-08-26 09:00_
+\_Last updated: 2025-08-26 10:00:00"
+\_Next sync: 2025-08-27 10:00:00
+EOF

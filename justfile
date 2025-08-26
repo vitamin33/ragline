@@ -23,7 +23,7 @@ dev:
     set -e
     echo "Starting RAGline services..."
     (cd services/api && uvicorn main:app --reload --port 8000) &
-    (cd services/worker && celery -A worker worker --loglevel=info) &
+    (cd services/worker && PYTHONPATH=/Users/vitaliiserbyn/development/ragline celery -A celery_app worker --loglevel=info) &
     (cd services/llm && uvicorn main:app --reload --port 8001) &
     wait
 
