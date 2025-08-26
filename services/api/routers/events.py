@@ -3,8 +3,14 @@ from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 import asyncio
 import json
+import redis.asyncio as redis
+from packages.security.auth import get_current_user_token
+from packages.security.jwt import TokenData
+import structlog
+import os
 
 router = APIRouter()
+logger = structlog.get_logger(__name__)
 
 
 @router.get("/stream")
