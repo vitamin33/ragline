@@ -8,6 +8,10 @@ Supports OpenAI API and local models via OPENAI_API_BASE override.
 import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+from dotenv import load_dotenv
+
+# Load environment variables from project root
+load_dotenv("../../.env")
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
