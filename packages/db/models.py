@@ -68,8 +68,6 @@ class Order(Base, TimestampMixin):
     total_amount: Mapped[int] = mapped_column(Integer, nullable=False)  # Total in cents
     currency: Mapped[str] = mapped_column(String(3), default="USD")
     extra_data: Mapped[Optional[dict]] = mapped_column(JSON)
-    idempotency_key: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
-    response_json: Mapped[Optional[dict]] = mapped_column(JSON)
     
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="orders")
     user: Mapped["User"] = relationship("User", back_populates="orders")

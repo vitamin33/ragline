@@ -36,6 +36,18 @@ except ImportError as e:
     print(f"Warning: Could not import tools: {e}")
     TOOLS_AVAILABLE = False
 
+# Import enhanced streaming
+try:
+    from streaming import (
+        get_streaming_manager, 
+        BufferedEventSourceResponse,
+        TokenLimitManager
+    )
+    ENHANCED_STREAMING_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import enhanced streaming: {e}")
+    ENHANCED_STREAMING_AVAILABLE = False
+
 # Use StreamingResponse instead of EventSourceResponse for now
 try:
     from sse_starlette.sse import EventSourceResponse
@@ -58,6 +70,9 @@ class ChatRequest(BaseModel):
     tools_enabled: bool = Field(default=True, description="Enable tool calling")
     tenant_id: Optional[str] = Field(None, description="Tenant ID for multi-tenancy")
     user_id: Optional[str] = Field(None, description="User ID for context")
+    session_id: Optional[str] = Field(None, description="Session ID for conversation memory")
+    max_tokens: Optional[int] = Field(None, description="Override max response tokens")
+    use_conversation_memory: bool = Field(default=True, description="Use conversation history")
 
 
 class ChatResponse(BaseModel):
@@ -101,7 +116,11 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def generate_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
+async def generate_chat_stream(
+    request: ChatRequest, 
+    messages: Optional[List[ChatMessage]] = None,
+    token_manager: Optional[Any] = None
+) -> AsyncGenerator[str, None]:
     """Generate streaming chat response with tool calling support."""
     
     if not LLM_CLIENT_AVAILABLE:
@@ -113,13 +132,16 @@ async def generate_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None
         # Get LLM client
         client = get_llm_client()
         
+        # Use enhanced messages if provided, otherwise use request messages
+        source_messages = messages or request.messages
+        
         # Convert messages to LLM format
         llm_messages = [
             LLMChatMessage(
                 role=msg.role,
                 content=msg.content
             )
-            for msg in request.messages
+            for msg in source_messages
         ]
         
         # Define tools if enabled
@@ -135,14 +157,22 @@ async def generate_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None
                 print(f"Warning: Failed to load tools for streaming: {e}")
                 tools = None
         
+        # Configure response parameters with token limits
+        response_config = {
+            "messages": llm_messages,
+            "tools": tools,
+            "stream": True,
+            "temperature": 0.7,
+            "max_tokens": request.max_tokens or 1000
+        }
+        
+        # Apply token manager limits if available
+        if token_manager:
+            limiter_config = token_manager.create_response_limiter(request.max_tokens)
+            response_config.update(limiter_config)
+        
         # Stream response from LLM
-        stream = await client.chat_completion(
-            messages=llm_messages,
-            tools=tools,
-            stream=True,
-            temperature=0.7,
-            max_tokens=1000
-        )
+        stream = await client.chat_completion(**response_config)
         
         async for chunk in stream:
             # Handle different chunk types
@@ -210,18 +240,93 @@ async def chat_completions(request: ChatRequest):
     - Tool calling (retrieve_menu, apply_promos, confirm)
     - RAG-enhanced responses
     - Multi-tenant context isolation
+    - Conversation memory management
+    - Enhanced streaming with buffering
     """
     
-    if request.stream:
-        return StreamingResponse(
-            generate_chat_stream(request),
-            media_type="text/plain",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "Content-Type": "text/event-stream"
-            }
+    # Initialize token limit manager
+    token_manager = None
+    if ENHANCED_STREAMING_AVAILABLE:
+        token_manager = TokenLimitManager()
+        
+        # Validate input token count
+        message_dicts = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        is_valid, token_count = token_manager.validate_input_tokens(message_dicts)
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Input too long: {token_count} tokens exceeds {token_manager.max_input_tokens} limit"
+            )
+        
+        logger.info(f"Input validated: {token_count} tokens")
+    
+    # Add conversation memory if available
+    enhanced_messages = request.messages
+    if ENHANCED_STREAMING_AVAILABLE and request.use_conversation_memory and request.session_id:
+        streaming_manager = get_streaming_manager()
+        
+        # Get conversation context
+        conversation_context = streaming_manager.conversation_memory.get_conversation_context(
+            request.session_id
         )
+        
+        if conversation_context:
+            # Add conversation history before current messages
+            history_messages = [
+                ChatMessage(
+                    role=ctx_msg["role"],
+                    content=ctx_msg["content"],
+                    timestamp=datetime.fromisoformat(ctx_msg["timestamp"])
+                )
+                for ctx_msg in conversation_context
+            ]
+            
+            # Combine with current messages (avoid duplicates)
+            all_messages = history_messages + list(request.messages)
+            
+            # Apply token limits
+            if token_manager:
+                truncated_dicts = token_manager.truncate_context([
+                    {"role": msg.role, "content": msg.content} for msg in all_messages
+                ])
+                enhanced_messages = [
+                    ChatMessage(role=msg["role"], content=msg["content"])
+                    for msg in truncated_dicts
+                ]
+            else:
+                enhanced_messages = all_messages
+            
+            logger.info(f"Added conversation context: {len(conversation_context)} previous messages")
+    
+    # Store user message in conversation memory
+    if ENHANCED_STREAMING_AVAILABLE and request.session_id and request.use_conversation_memory:
+        streaming_manager = get_streaming_manager()
+        for msg in request.messages:
+            if msg.role == "user":
+                streaming_manager.conversation_memory.add_message(
+                    session_id=request.session_id,
+                    role=msg.role,
+                    content=msg.content
+                )
+    
+    if request.stream:
+        # Use enhanced streaming if available
+        if ENHANCED_STREAMING_AVAILABLE:
+            return BufferedEventSourceResponse(
+                generate_chat_stream(request, enhanced_messages, token_manager),
+                session_id=request.session_id
+            )
+        else:
+            return StreamingResponse(
+                generate_chat_stream(request, enhanced_messages),
+                media_type="text/plain",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "Content-Type": "text/event-stream"
+                }
+            )
     else:
         # Non-streaming response
         if not LLM_CLIENT_AVAILABLE:
@@ -361,3 +466,49 @@ async def list_available_tools():
         
     except Exception as e:
         return {"error": f"Failed to load tools: {str(e)}", "tools": []}
+
+
+@router.get("/sessions/{session_id}/stats")
+async def get_session_stats(session_id: str):
+    """Get conversation statistics for a session."""
+    
+    if not ENHANCED_STREAMING_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Enhanced streaming not available")
+    
+    try:
+        streaming_manager = get_streaming_manager()
+        stats = streaming_manager.conversation_memory.get_session_stats(session_id)
+        
+        return {
+            "session_id": session_id,
+            "stats": stats,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get session stats: {str(e)}")
+
+
+@router.get("/sessions/{session_id}/context")
+async def get_session_context(session_id: str, max_tokens: Optional[int] = None):
+    """Get conversation context for a session."""
+    
+    if not ENHANCED_STREAMING_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Enhanced streaming not available")
+    
+    try:
+        streaming_manager = get_streaming_manager()
+        context = streaming_manager.conversation_memory.get_conversation_context(
+            session_id, max_tokens
+        )
+        
+        return {
+            "session_id": session_id,
+            "context": context,
+            "message_count": len(context),
+            "total_tokens": sum(msg.get("token_count", 0) for msg in context),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get session context: {str(e)}")
