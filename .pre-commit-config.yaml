@@ -32,3 +32,12 @@ repos:
       args: ['--maxkb=1000']
     - id: check-merge-conflict
     - id: debug-statements
+
+- repo: local
+  hooks:
+    - id: generate-openapi
+      name: Generate OpenAPI specification
+      entry: bash -c 'if python3 -c "import fastapi" 2>/dev/null; then python3 scripts/generate_openapi.py; else echo "⚠️  Skipping OpenAPI generation - FastAPI not available in environment"; fi'
+      language: system
+      files: ^services/api/
+      pass_filenames: false
