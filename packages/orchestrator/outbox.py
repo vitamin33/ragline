@@ -14,16 +14,37 @@ from dataclasses import dataclass
 from contextlib import asynccontextmanager
 
 import redis.asyncio as redis
+import jsonschema
 from sqlalchemy import text, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, AsyncEngine
 from celery.utils.log import get_task_logger
 
 from packages.db.models import Outbox
-from packages.db.database import AsyncSessionLocal
+from packages.db.database import engine, AsyncSessionLocal
 from services.worker.config import WorkerConfig
 from .stream_producer import get_stream_producer, StreamEvent, EventMetadata
 
 logger = get_task_logger(__name__)
+
+# Load event schemas
+def _load_event_schemas() -> Dict[str, Dict[str, Any]]:
+    """Load event schemas for validation"""
+    import os
+    schemas = {}
+    
+    # Load order_v1.json schema
+    try:
+        schema_path = os.path.join(os.path.dirname(__file__), '../../contracts/events/order_v1.json')
+        with open(schema_path, 'r') as f:
+            schemas['order_v1'] = json.load(f)
+        logger.info("Loaded order_v1 event schema")
+    except Exception as e:
+        logger.warning(f"Failed to load order_v1 schema: {e}")
+    
+    return schemas
+
+# Global event schemas
+EVENT_SCHEMAS = _load_event_schemas()
 
 
 @dataclass
@@ -135,32 +156,37 @@ class OutboxConsumer:
     async def _fetch_unprocessed_events(self) -> List[OutboxEvent]:
         """Fetch unprocessed events from the outbox table"""
         async with AsyncSessionLocal() as session:
-            # Fetch unprocessed events ordered by created_at
-            query = (
-                select(Outbox)
-                .where(Outbox.processed == False)
-                .order_by(Outbox.created_at)
-                .limit(self.batch_size)
-            )
-            
-            result = await session.execute(query)
-            outbox_records = result.scalars().all()
-            
-            # Convert to OutboxEvent objects
-            events = []
-            for record in outbox_records:
-                event = OutboxEvent(
-                    id=record.id,
-                    aggregate_id=record.aggregate_id,
-                    aggregate_type=record.aggregate_type,
-                    event_type=record.event_type,
-                    payload=record.payload,
-                    created_at=record.created_at,
-                    retry_count=record.retry_count
+            try:
+                # Fetch unprocessed events ordered by created_at
+                query = (
+                    select(Outbox)
+                    .where(Outbox.processed == False)
+                    .order_by(Outbox.created_at)
+                    .limit(self.batch_size)
                 )
-                events.append(event)
-            
-            return events
+                
+                result = await session.execute(query)
+                outbox_records = result.scalars().all()
+                
+                # Convert to OutboxEvent objects
+                events = []
+                for record in outbox_records:
+                    event = OutboxEvent(
+                        id=record.id,
+                        aggregate_id=record.aggregate_id,
+                        aggregate_type=record.aggregate_type,
+                        event_type=record.event_type,
+                        payload=record.payload,
+                        created_at=record.created_at,
+                        retry_count=record.retry_count
+                    )
+                    events.append(event)
+                
+                return events
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"Failed to fetch unprocessed events: {e}")
+                raise
     
     async def _process_events(self, events: List[OutboxEvent]):
         """Process a batch of outbox events"""
@@ -186,6 +212,9 @@ class OutboxConsumer:
     async def _process_single_event(self, event: OutboxEvent):
         """Process a single outbox event by publishing to Redis Stream"""
         try:
+            # Validate event schema before publishing
+            await self._validate_event_schema(event)
+            
             # Get stream producer
             producer = await get_stream_producer()
             
@@ -203,33 +232,66 @@ class OutboxConsumer:
         except Exception as e:
             raise OutboxProcessingError(f"Failed to publish to Redis Stream: {e}")
     
+    async def _validate_event_schema(self, event: OutboxEvent):
+        """Validate event payload against schema"""
+        try:
+            # Determine schema key based on aggregate type and event type
+            schema_key = None
+            if event.aggregate_type.lower() == "order":
+                schema_key = "order_v1"
+            
+            if schema_key and schema_key in EVENT_SCHEMAS:
+                schema = EVENT_SCHEMAS[schema_key]
+                # Validate the payload against the schema
+                jsonschema.validate(event.payload, schema)
+                logger.debug(f"Event {event.id} payload validated against {schema_key} schema")
+            else:
+                logger.warning(f"No schema found for event {event.id} (type: {event.aggregate_type}.{event.event_type})")
+                
+        except jsonschema.ValidationError as e:
+            logger.error(f"Schema validation failed for event {event.id}: {e}")
+            raise OutboxProcessingError(f"Schema validation failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during schema validation for event {event.id}: {e}")
+            raise OutboxProcessingError(f"Schema validation error: {e}")
+    
     
     async def _mark_event_processed(self, event_id: int):
         """Mark an event as processed in the database"""
         async with AsyncSessionLocal() as session:
-            query = (
-                update(Outbox)
-                .where(Outbox.id == event_id)
-                .values(
-                    processed=True,
-                    processed_at=datetime.now(timezone.utc)
+            try:
+                query = (
+                    update(Outbox)
+                    .where(Outbox.id == event_id)
+                    .values(
+                        processed=True,
+                        processed_at=datetime.now(timezone.utc)
+                    )
                 )
-            )
-            
-            await session.execute(query)
-            await session.commit()
+                
+                await session.execute(query)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"Failed to mark event {event_id} as processed: {e}")
+                raise
     
     async def _increment_retry_count(self, event_id: int):
         """Increment retry count for a failed event"""
         async with AsyncSessionLocal() as session:
-            query = (
-                update(Outbox)
-                .where(Outbox.id == event_id)
-                .values(retry_count=Outbox.retry_count + 1)
-            )
-            
-            await session.execute(query)
-            await session.commit()
+            try:
+                query = (
+                    update(Outbox)
+                    .where(Outbox.id == event_id)
+                    .values(retry_count=Outbox.retry_count + 1)
+                )
+                
+                await session.execute(query)
+                await session.commit()
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"Failed to increment retry count for event {event_id}: {e}")
+                raise
     
     async def _handle_max_retries(self, event: OutboxEvent):
         """Handle events that have exceeded max retries"""
@@ -302,18 +364,23 @@ class OutboxReprocessor:
                 
                 # Reset event to unprocessed state in database
                 async with AsyncSessionLocal() as session:
-                    query = (
-                        update(Outbox)
-                        .where(Outbox.id == int(event_data['event_id']))
-                        .values(
-                            processed=False,
-                            processed_at=None,
-                            retry_count=0  # Reset retry count
+                    try:
+                        query = (
+                            update(Outbox)
+                            .where(Outbox.id == int(event_data['event_id']))
+                            .values(
+                                processed=False,
+                                processed_at=None,
+                                retry_count=0  # Reset retry count
+                            )
                         )
-                    )
-                    
-                    await session.execute(query)
-                    await session.commit()
+                        
+                        await session.execute(query)
+                        await session.commit()
+                    except Exception as e:
+                        await session.rollback()
+                        logger.error(f"Failed to reset event {event_data['event_id']}: {e}")
+                        raise
                 
                 reprocessed += 1
                 logger.info(f"Requeued event {event_data['event_id']} for processing")
