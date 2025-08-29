@@ -61,14 +61,14 @@ if [ -d "$WORKTREES_DIR" ]; then
         if [ -d "$worktree" ]; then
             worktree_name=$(basename "$worktree")
             echo "📝 Installing hook for worktree: $worktree_name..."
-            
+
             # Create hooks directory if it doesn'\''t exist
             mkdir -p "$worktree/hooks"
-            
+
             # Install commit-msg hook
             echo "$COMMIT_MSG_HOOK" > "$worktree/hooks/commit-msg"
             chmod +x "$worktree/hooks/commit-msg"
-            
+
             echo "✅ Hook installed for $worktree_name"
         fi
     done

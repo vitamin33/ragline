@@ -7,16 +7,15 @@ from typing import AsyncGenerator
 # Add project root to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
+import structlog
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import structlog
+from fastapi.responses import JSONResponse
 
-from packages.db.database import create_tables, close_db
-from services.api.routers import auth, products, orders, events
-
+from packages.db.database import close_db, create_tables
+from services.api.routers import auth, events, orders, products
 
 logger = structlog.get_logger(__name__)
 
@@ -25,14 +24,14 @@ logger = structlog.get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan handler."""
     logger.info("Starting RAGline API service")
-    
+
     # Create database tables on startup
     if os.getenv("AUTO_CREATE_TABLES", "false").lower() == "true":
         await create_tables()
         logger.info("Database tables created")
-    
+
     yield
-    
+
     # Cleanup on shutdown
     logger.info("Shutting down RAGline API service")
     await close_db()
@@ -52,13 +51,15 @@ app = FastAPI(
 # Security middleware
 app.add_middleware(
     TrustedHostMiddleware,
-    allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0").split(",")
+    allowed_hosts=os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0").split(","),
 )
 
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:8080").split(","),
+    allow_origins=os.getenv(
+        "CORS_ORIGINS", "http://localhost:3000,http://localhost:8080"
+    ).split(","),
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
@@ -76,7 +77,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "message": "Request validation failed",
             "details": exc.errors(),
             "request_id": getattr(request.state, "request_id", None),
-        }
+        },
     )
 
 
@@ -90,7 +91,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             "error": "internal_error",
             "message": "An internal error occurred",
             "request_id": getattr(request.state, "request_id", None),
-        }
+        },
     )
 
 
@@ -98,9 +99,10 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def add_request_id(request: Request, call_next):
     """Add request ID to all requests for tracing."""
     import uuid
+
     request_id = str(uuid.uuid4())
     request.state.request_id = request_id
-    
+
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
@@ -110,9 +112,9 @@ async def add_request_id(request: Request, call_next):
 async def log_requests(request: Request, call_next):
     """Log all requests with structured logging."""
     start_time = time.time()
-    
+
     response = await call_next(request)
-    
+
     process_time = time.time() - start_time
     logger.info(
         "Request processed",
@@ -122,7 +124,7 @@ async def log_requests(request: Request, call_next):
         process_time=process_time,
         request_id=getattr(request.state, "request_id", None),
     )
-    
+
     return response
 
 
@@ -158,7 +160,7 @@ app.include_router(events.router, prefix="/v1/events", tags=["Events"])
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

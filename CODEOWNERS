@@ -1,0 +1,42 @@
+# RAGline Agent Ownership Boundaries
+# This file enforces code review requirements based on agent responsibilities
+# Format: path-pattern @username-or-team
+
+# Agent A (Core API & Data) - feat/core-api
+/services/api/ @vitamin33
+/packages/db/ @vitamin33
+/packages/security/ @vitamin33
+/packages/cache/ @vitamin33
+/contracts/openapi.yaml @vitamin33
+
+# Agent B (Reliability & Events) - feat/reliability
+/services/worker/ @vitamin33
+/packages/orchestrator/ @vitamin33
+/contracts/events/order_v1.json @vitamin33
+
+# Agent C (LLM & RAG) - feat/llm
+/services/llm/ @vitamin33
+/packages/rag/ @vitamin33
+/contracts/events/chat_tool_v1.json @vitamin33
+
+# Shared Components - require all agents
+/docs/ @vitamin33
+/scripts/ @vitamin33
+/ops/ @vitamin33
+/tests/integration/cross_agent/ @vitamin33
+/.github/ @vitamin33
+/requirements*.txt @vitamin33
+/pyproject.toml @vitamin33
+/justfile @vitamin33
+/README.md @vitamin33
+
+# Observability - shared across all agents
+/packages/obs/ @vitamin33
+
+# Root configuration files
+/.pre-commit-config.yaml @vitamin33
+/.gitignore @vitamin33
+/CODEOWNERS @vitamin33
+
+# Contract changes require careful review
+/contracts/ @vitamin33

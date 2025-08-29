@@ -7,30 +7,30 @@ MAIN_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 sync_from_main() {
     echo "=== Syncing all agents from main ==="
-    
+
     for agent in a b c; do
         echo "Syncing ragline-$agent..."
         cd "$MAIN_DIR/../ragline-$agent"
-        
+
         # Fetch latest
         git fetch origin
-        
+
         # Check for uncommitted changes
         if [ -n "$(git status --porcelain)" ]; then
             echo "  WARNING: Uncommitted changes in ragline-$agent"
             echo "  Stashing changes..."
             git stash push -m "Auto-stash before sync"
         fi
-        
+
         # Merge or rebase from main
         git rebase origin/main || git merge origin/main
-        
+
         # Pop stash if exists
         if git stash list | grep -q "Auto-stash before sync"; then
             echo "  Restoring stashed changes..."
             git stash pop
         fi
-        
+
         echo "  Done!"
     done
 }
@@ -38,30 +38,30 @@ sync_from_main() {
 merge_agent_to_main() {
     local agent=$1
     local branch=""
-    
+
     case $agent in
         a) branch="feat/core-api" ;;
         b) branch="feat/reliability" ;;
         c) branch="feat/llm" ;;
         *) echo "Invalid agent"; exit 1 ;;
     esac
-    
+
     echo "=== Merging Agent $agent to main ==="
-    
+
     # Go to main repo
     cd "$MAIN_DIR"
-    
+
     # Ensure we're on main
     git checkout main
     git pull origin main
-    
+
     # Merge the feature branch
     echo "Merging $branch..."
     git merge origin/$branch --no-ff -m "merge: Agent $agent Day X changes"
-    
+
     # Push to origin
     git push origin main
-    
+
     echo "Agent $agent merged to main!"
 }
 
@@ -69,15 +69,15 @@ create_daily_pr() {
     local agent=$1
     local day=$2
     local branch=""
-    
+
     case $agent in
         a) branch="feat/core-api" ;;
         b) branch="feat/reliability" ;;
         c) branch="feat/llm" ;;
     esac
-    
+
     echo "Creating PR for Agent $agent Day $day"
-    
+
     # Using GitHub CLI
     gh pr create \
         --base main \

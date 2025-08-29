@@ -1,17 +1,17 @@
 # RAGline Development System Improvements Plan
 
-**Status**: Ready for Implementation  
-**Timeline**: 10 Days  
-**Focus**: Quick wins with maximum impact (Pareto Principle)  
-**Goal**: Transform to top-tier AI industry development practices  
+**Status**: Ready for Implementation
+**Timeline**: 10 Days
+**Focus**: Quick wins with maximum impact (Pareto Principle)
+**Goal**: Transform to top-tier AI industry development practices
 
 ## Executive Summary
 
 This plan upgrades RAGline's already-excellent multi-agent architecture to **FAANG-level development practices** through incremental, high-impact improvements. Each phase delivers immediate value while building toward a world-class development system.
 
-**Current State**: Senior-level engineering practices  
-**Target State**: Top-tier AI industry development workflow  
-**Implementation**: 10 focused days, minimal maintenance overhead  
+**Current State**: Senior-level engineering practices
+**Target State**: Top-tier AI industry development workflow
+**Implementation**: 10 focused days, minimal maintenance overhead
 
 ## Current Architecture Analysis
 
@@ -42,18 +42,18 @@ This plan upgrades RAGline's already-excellent multi-agent architecture to **FAA
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.6.4
-  hooks: 
+  hooks:
     - id: ruff
       args: ["--fix"]
     - id: ruff-format
 - repo: https://github.com/pycqa/bandit
   rev: 1.7.9
-  hooks: 
+  hooks:
     - id: bandit
       args: ["-q", "-r", "services", "packages"]
 - repo: https://github.com/gitleaks/gitleaks
   rev: v8.18.4
-  hooks: 
+  hooks:
     - id: gitleaks
       args: ["--no-banner", "protect", "--staged"]
 ```
@@ -94,7 +94,7 @@ pre-commit install
 ```bash
 # CODEOWNERS
 /services/api/ @vitamin33
-/services/worker/ @vitamin33  
+/services/worker/ @vitamin33
 /services/llm/ @vitamin33
 /packages/db/ @vitamin33
 /packages/security/ @vitamin33
@@ -107,8 +107,8 @@ pre-commit install
 /ops/ @vitamin33
 ```
 
-**Deliverable**: Code quality gates active on every commit/PR  
-**Impact**: Prevent 90% of common issues before they reach CI  
+**Deliverable**: Code quality gates active on every commit/PR
+**Impact**: Prevent 90% of common issues before they reach CI
 
 ---
 
@@ -120,7 +120,7 @@ pre-commit install
 ```yaml
 # .github/workflows/ci.yml
 name: CI
-on: 
+on:
   pull_request:
   push:
     branches: [main, 'feat/*']
@@ -135,22 +135,22 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
-      with: 
+      with:
         python-version: '3.11'
         cache: 'pip'
-    
+
     - name: Install dependencies
       run: |
         pip install -r requirements.txt
         pip install pytest pytest-cov mypy ruff bandit
-    
-    - name: Code Quality Gates  
+
+    - name: Code Quality Gates
       run: |
         ruff check .
         ruff format --check .
         bandit -q -r services packages
         mypy services packages --ignore-missing-imports || true
-    
+
     - name: Run Tests by Agent
       run: |
         case "${{ matrix.target }}" in
@@ -159,7 +159,7 @@ jobs:
           agent-c) pytest tests/unit/agent_c tests/integration/agent_c -v ;;
           integration) pytest tests/integration/cross_agent -v ;;
         esac
-    
+
     - name: Coverage Gate
       if: matrix.target != 'integration'
       run: pytest --cov=services --cov=packages --cov-fail-under=75
@@ -178,10 +178,10 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-python@v5
       with: python-version: '3.11'
-    
+
     - name: Install validators
       run: pip install jsonschema openapi-spec-validator pyyaml
-    
+
     - name: Validate Event Contracts
       run: |
         python -c "
@@ -190,7 +190,7 @@ jobs:
             data = json.load(contract.open())
             print(f'✓ {contract.name} is valid JSON')
         "
-    
+
     - name: Validate OpenAPI Spec
       run: |
         python -c "
@@ -217,7 +217,7 @@ python_files = test_*.py
 python_functions = test_*
 markers =
     agent_a: Agent A (Core API) tests
-    agent_b: Agent B (Reliability) tests  
+    agent_b: Agent B (Reliability) tests
     agent_c: Agent C (LLM) tests
     integration: Cross-agent integration tests
     slow: Slow tests (>1s)
@@ -225,8 +225,8 @@ markers =
 addopts = --strict-markers --tb=short -ra
 ```
 
-**Deliverable**: Full CI/CD pipeline with agent-specific testing  
-**Impact**: Catch integration issues before merge, 75%+ code coverage  
+**Deliverable**: Full CI/CD pipeline with agent-specific testing
+**Impact**: Catch integration issues before merge, 75%+ code coverage
 
 ---
 
@@ -324,8 +324,8 @@ export default function () {
 }
 ```
 
-**Deliverable**: One-click dev environment with hot reload  
-**Impact**: 50% faster development feedback loops  
+**Deliverable**: One-click dev environment with hot reload
+**Impact**: 50% faster development feedback loops
 
 ---
 
@@ -338,11 +338,11 @@ export default function () {
 # docs/SLO.md
 ## API Service (Agent A)
 - **Availability**: 99.5% uptime (30-day window)
-- **Latency**: p95 < 400ms, p50 < 100ms  
+- **Latency**: p95 < 400ms, p50 < 100ms
 - **Error Rate**: < 1% (5xx responses)
 - **Cache Hit Rate**: > 80%
 
-## Worker Service (Agent B)  
+## Worker Service (Agent B)
 - **Event Processing**: < 100ms lag p95
 - **Queue Health**: < 1000 pending jobs
 - **Error Rate**: < 0.5% task failures
@@ -367,7 +367,7 @@ groups:
   rules:
   - alert: APIHighErrorRate
     expr: |
-      sum(rate(ragline_api_requests_total{status=~"5.."}[5m])) / 
+      sum(rate(ragline_api_requests_total{status=~"5.."}[5m])) /
       sum(rate(ragline_api_requests_total[5m])) > 0.01
     for: 10m
     labels:
@@ -379,7 +379,7 @@ groups:
 
   - alert: APILatencyHigh
     expr: |
-      histogram_quantile(0.95, 
+      histogram_quantile(0.95,
         sum(rate(ragline_api_request_duration_seconds_bucket[5m])) by (le)
       ) > 0.4
     for: 10m
@@ -389,14 +389,14 @@ groups:
     annotations:
       summary: "API p95 latency > 400ms"
 
-- name: ragline-worker-slos  
+- name: ragline-worker-slos
   rules:
   - alert: WorkerQueueBacklog
     expr: ragline_worker_queue_size > 1000
     for: 5m
     annotations:
       summary: "Worker queue backlog > 1000 jobs"
-      
+
   - alert: EventProcessingLag
     expr: ragline_worker_event_lag_seconds > 0.1
     for: 10m
@@ -421,8 +421,8 @@ groups:
       summary: "LLM cost per request > $0.05"
 ```
 
-**Deliverable**: Complete SLO tracking with automated alerts  
-**Impact**: Proactive issue detection, clear reliability targets  
+**Deliverable**: Complete SLO tracking with automated alerts
+**Impact**: Proactive issue detection, clear reliability targets
 
 ---
 
@@ -467,7 +467,7 @@ echo "🔒 Running security scans..."
 pip install pip-audit
 pip-audit --desc
 
-# Secrets scanning  
+# Secrets scanning
 gitleaks detect --source . --verbose
 
 # Docker image scanning (future)
@@ -491,8 +491,8 @@ OPENAI_API_KEY=your_openai_key_here
 JWT_SECRET_KEY=generate_a_secure_random_key
 ```
 
-**Deliverable**: Automated security scanning and dependency updates  
-**Impact**: Prevent security vulnerabilities, keep dependencies current  
+**Deliverable**: Automated security scanning and dependency updates
+**Impact**: Prevent security vulnerabilities, keep dependencies current
 
 ---
 
@@ -512,11 +512,11 @@ class TestAgentContracts:
     def test_order_event_schema_validation(self):
         """Test order events comply with v1 schema"""
         schema = json.loads(Path("contracts/events/order_v1.json").read_text())
-        
+
         valid_event = {
             "event_type": "order_created",
             "tenant_id": "tenant-123",
-            "user_id": "user-456", 
+            "user_id": "user-456",
             "order_id": "order-789",
             "timestamp": "2025-08-29T10:00:00Z",
             "data": {
@@ -524,13 +524,13 @@ class TestAgentContracts:
                 "total": 29.98
             }
         }
-        
+
         validate(instance=valid_event, schema=schema)
-    
+
     def test_openapi_spec_completeness(self):
         """Ensure OpenAPI spec covers all API endpoints"""
         spec = yaml.safe_load(Path("contracts/openapi.yaml").read_text())
-        
+
         required_paths = ["/v1/auth/login", "/v1/orders", "/v1/products", "/health"]
         for path in required_paths:
             assert path in spec.get("paths", {}), f"Missing path: {path}"
@@ -554,25 +554,25 @@ class RAGEvaluator:
         """Evaluate RAG retrieval quality against gold standard"""
         results = []
         total_cost = total_time = 0
-        
+
         for case in test_cases:
             start_time = time.time()
-            
+
             response = await self.client.post(
                 f"{self.base_url}/v1/chat",
                 json={"messages": [{"role": "user", "content": case["query"]}]}
             )
-            
+
             elapsed = time.time() - start_time
             total_time += elapsed
-            
+
             # Calculate recall@5, MRR@10
             retrieved = response.json()["tool_calls"][0]["result"]["items"]
             relevant = case["expected_items"]
             recall_5 = len(set(retrieved[:5]) & set(relevant)) / len(relevant)
             results.append(recall_5)
             total_cost += 0.01  # Mock cost
-        
+
         return EvalMetrics(
             recall_at_5=sum(results) / len(results),
             mrr_at_10=self._calculate_mrr(results),
@@ -610,7 +610,7 @@ What becomes easier or more difficult to do because of this change?
 
 ## Implementation Plan
 - [ ] Step 1
-- [ ] Step 2 
+- [ ] Step 2
 - [ ] Step 3
 
 ## Related
@@ -628,8 +628,8 @@ adr-new title:
     echo "Created: $filename"
 ```
 
-**Deliverable**: Contract-first development with automated validation  
-**Impact**: Prevent integration issues, systematic decision tracking  
+**Deliverable**: Contract-first development with automated validation
+**Impact**: Prevent integration issues, systematic decision tracking
 
 ---
 
@@ -664,7 +664,7 @@ server {
         proxy_pass http://api_stable;
         add_header X-Canary-Version $variant;
     }
-    
+
     location /health {
         proxy_pass http://api_canary/health;
         proxy_next_upstream error timeout;
@@ -717,7 +717,7 @@ fi
 ```
 
 ### 2. Monitor Key Metrics (15 minutes)
-- Error rate < 1% 
+- Error rate < 1%
 - p95 latency < 400ms
 - No increase in 5xx responses
 
@@ -725,7 +725,7 @@ fi
 ```bash
 ./deploy/scripts/update_canary.sh 20
 # Monitor 15 minutes
-./deploy/scripts/update_canary.sh 50  
+./deploy/scripts/update_canary.sh 50
 # Monitor 15 minutes
 ./deploy/scripts/promote_canary.sh
 ```
@@ -741,8 +741,8 @@ fi
 - 5xx response rate > 5%
 ```
 
-**Deliverable**: Automated canary deployments with rollback  
-**Impact**: Risk-free deployments, faster time to production  
+**Deliverable**: Automated canary deployments with rollback
+**Impact**: Risk-free deployments, faster time to production
 
 ---
 
@@ -761,20 +761,20 @@ class HotReloadServer:
     def __init__(self):
         self.services = {
             'api': {'port': 8000, 'process': None, 'dir': 'services/api'},
-            'llm': {'port': 8001, 'process': None, 'dir': 'services/llm'}, 
+            'llm': {'port': 8001, 'process': None, 'dir': 'services/llm'},
             'worker': {'process': None, 'dir': 'services/worker'}
         }
-    
+
     async def start_service(self, name):
         service = self.services[name]
         if name == 'worker':
             cmd = ['celery', '-A', 'celery_app', 'worker', '--loglevel=info']
         else:
             cmd = ['uvicorn', 'main:app', '--reload', '--port', str(service['port'])]
-        
+
         service['process'] = await asyncio.create_subprocess_exec(*cmd, cwd=service['dir'])
         print(f"✅ Started {name} service")
-    
+
     async def restart_service(self, name):
         service = self.services[name]
         if service['process']:
@@ -782,7 +782,7 @@ class HotReloadServer:
             await service['process'].wait()
         await self.start_service(name)
         print(f"🔄 Restarted {name} service")
-    
+
     async def watch_and_reload(self):
         """Watch for file changes and restart relevant services"""
         async for changes in awatch('services', 'packages'):
@@ -806,7 +806,7 @@ class HotReloadServer:
 # services/llm/mocks.py
 class MockLLMClient:
     """Mock LLM client for development"""
-    
+
     async def stream_chat_completion(self, messages, tools=None):
         """Mock streaming response"""
         mock_responses = {
@@ -814,15 +814,15 @@ class MockLLMClient:
             "promo": "Applied 10% discount. New total: $26.99",
             "confirm": "Order confirmed! Order ID: ORDER-12345"
         }
-        
+
         last_message = messages[-1]["content"].lower()
         if "menu" in last_message:
             response = mock_responses["menu"]
         elif "promo" in last_message:
-            response = mock_responses["promo"] 
+            response = mock_responses["promo"]
         else:
             response = "Mock LLM response for development"
-        
+
         # Simulate streaming
         for chunk in response.split():
             yield f"data: {json.dumps({'content': chunk + ' '})}\n\n"
@@ -847,7 +847,7 @@ class DevDataSeeder:
             Tenant(id="dev-tenant-2", name="Beta Restaurant", active=True),
         ]
         # Seed logic...
-    
+
     def seed_products(self):
         """Create development products"""
         products = [
@@ -856,7 +856,7 @@ class DevDataSeeder:
             # More products...
         ]
         # Seed logic...
-    
+
     def run(self):
         print("🌱 Seeding development data...")
         self.seed_tenants()
@@ -865,8 +865,8 @@ class DevDataSeeder:
         print("✅ Development data seeding complete!")
 ```
 
-**Deliverable**: Instant hot reload with mock services  
-**Impact**: 70% faster development feedback loops  
+**Deliverable**: Instant hot reload with mock services
+**Impact**: 70% faster development feedback loops
 
 ---
 
@@ -886,7 +886,7 @@ class WorkflowManager:
         subprocess.run(["just", "smoke"])
         subprocess.run(["./scripts/track_progress.sh", "show"])
         print("✅ Morning routine complete - ready to code!")
-    
+
     def evening_routine(self):
         """End-of-day cleanup and sync"""
         print("🌙 Running evening routine...")
@@ -895,7 +895,7 @@ class WorkflowManager:
         subprocess.run(["./scripts/track_progress.sh", "summary"])
         subprocess.run(["./scripts/daily_workflow.sh", "evening"])
         print("✅ Evening routine complete - good work today!")
-    
+
     def new_feature(self, agent, feature_name):
         """Start new feature development"""
         print(f"🚀 Starting new feature: {feature_name} for Agent {agent}")
@@ -909,17 +909,17 @@ class WorkflowManager:
 quality-gates:
     #!/usr/bin/env bash
     echo "🔍 Running quality gates..."
-    
+
     # Code quality
     ruff check . --fix && ruff format .
-    
+
     # Security
     bandit -q -r services packages
-    
+
     # Tests with coverage
     pytest tests/ -x --tb=short
     pytest --cov=services --cov=packages --cov-fail-under=75
-    
+
     # Contract validation
     python -c "
     import json, pathlib
@@ -927,13 +927,13 @@ quality-gates:
         json.load(contract.open())
         print(f'✓ {contract.name}')
     " || echo "Contracts not ready yet"
-    
+
     echo "✅ All quality gates passed!"
 
 dev-workflow:
     #!/usr/bin/env bash
     echo "🚀 Starting full development workflow..."
-    just up && just seed-dev  
+    just up && just seed-dev
     python scripts/dev_server.py &
     echo "Development server running - Press Ctrl+C to stop"
 ```
@@ -954,9 +954,9 @@ Generated: {datetime.now().isoformat()}
             doc += f"### {path}\n"
             for method, details in methods.items():
                 doc += f"- **{method.upper()}**: {details.get('summary')}\n"
-        
+
         Path("docs/generated/api.md").write_text(doc)
-    
+
     def generate_metrics_docs(self):
         """Generate metrics documentation"""
         doc = f"""# Metrics & Monitoring
@@ -967,7 +967,7 @@ Generated: {datetime.now().isoformat()}
 - **Worker**: < 100ms event lag p95
 - **LLM**: < 300ms first token p50
 
-## Dashboards  
+## Dashboards
 - Grafana: http://localhost:3000
 - Prometheus: http://localhost:9090
 """
@@ -986,7 +986,7 @@ class HealthChecker:
                 return "✅ API Service" if response.status_code == 200 else "❌ API Service"
         except:
             return "❌ API Service (not running)"
-    
+
     def check_redis(self):
         """Check Redis connection"""
         try:
@@ -995,7 +995,7 @@ class HealthChecker:
             return "✅ Redis"
         except:
             return "❌ Redis (not running)"
-    
+
     def check_postgres(self):
         """Check PostgreSQL connection"""
         try:
@@ -1004,18 +1004,18 @@ class HealthChecker:
             return "✅ PostgreSQL"
         except:
             return "❌ PostgreSQL (not running)"
-    
+
     async def run_health_check(self):
         """Run comprehensive health check"""
         print("🏥 RAGline System Health Check")
-        
+
         # Check all services
         api_status = await self.check_api_service()
         redis_status = self.check_redis()
         postgres_status = self.check_postgres()
-        
+
         print(f"Services:\n  {api_status}\n  {redis_status}\n  {postgres_status}")
-        
+
         if all("✅" in status for status in [api_status, redis_status, postgres_status]):
             print("🎉 System is healthy and ready for development!")
             return True
@@ -1024,8 +1024,8 @@ class HealthChecker:
             return False
 ```
 
-**Deliverable**: Complete workflow automation and health monitoring  
-**Impact**: Zero-friction daily workflows, proactive issue detection  
+**Deliverable**: Complete workflow automation and health monitoring
+**Impact**: Zero-friction daily workflows, proactive issue detection
 
 ---
 
@@ -1081,7 +1081,7 @@ class HealthChecker:
 - Check SLO dashboard for trends
 - Update ADRs for major decisions
 
-### Monthly (30 minutes)  
+### Monthly (30 minutes)
 - Review and update alerting thresholds
 - Evaluate new tools and practices
 - Archive old ADRs and documentation
@@ -1114,7 +1114,7 @@ This plan transforms RAGline from an already-excellent multi-agent system into a
 
 **Key Success Factors**:
 1. **Focus on quick wins** - each improvement delivers immediate value
-2. **Leverage existing strengths** - build on your solid architecture foundation  
+2. **Leverage existing strengths** - build on your solid architecture foundation
 3. **Automate everything** - minimize manual overhead and maintenance
 4. **Measure and iterate** - use SLOs to drive continuous improvement
 

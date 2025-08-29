@@ -2,11 +2,11 @@
 """
 Comprehensive Order Idempotency Testing
 """
+
 import sys
-import os
-import json
-import requests
 from pathlib import Path
+
+import requests
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -18,115 +18,102 @@ def test_order_idempotency_without_database():
     """Test Order idempotency endpoints (will fail gracefully without database)"""
     print("🧪 Testing Order Idempotency System")
     print("=" * 60)
-    
+
     base_url = "http://localhost:8000"
-    
+
     # Create test token
     token = jwt_manager.create_access_token(123, 456, "test@example.com", ["user"])
     headers = {"Authorization": f"Bearer {token}"}
-    
+
     # Test 1: Order creation without idempotency key
     print("📝 Test 1: Order creation without idempotency key...")
     try:
         order_data = {
             "items": [
                 {"sku": "PROD-123", "quantity": 2},
-                {"sku": "PROD-456", "quantity": 1}
+                {"sku": "PROD-456", "quantity": 1},
             ]
         }
-        
+
         response = requests.post(
-            f"{base_url}/v1/orders/", 
-            json=order_data,
-            headers=headers,
-            timeout=5
+            f"{base_url}/v1/orders/", json=order_data, headers=headers, timeout=5
         )
-        
+
         # Should fail at database but with proper validation
         if response.status_code in [400, 500]:
-            print("✅ Order creation endpoint accessible (failed at validation/database as expected)")
+            print(
+                "✅ Order creation endpoint accessible (failed at validation/database as expected)"
+            )
         elif response.status_code == 401:
             print("❌ Authentication failed")
             return False
         else:
             print(f"❌ Unexpected status: {response.status_code}")
             return False
-            
+
     except Exception as e:
         print(f"❌ Order creation test failed: {e}")
         return False
-    
+
     # Test 2: Order creation with idempotency key
     print("\n📝 Test 2: Order creation with Idempotency-Key header...")
     try:
-        order_data = {
-            "items": [
-                {"sku": "PROD-789", "quantity": 1}
-            ]
-        }
-        
-        headers_with_idempotency = {
-            **headers,
-            "Idempotency-Key": "test-order-12345"
-        }
-        
+        order_data = {"items": [{"sku": "PROD-789", "quantity": 1}]}
+
+        headers_with_idempotency = {**headers, "Idempotency-Key": "test-order-12345"}
+
         response = requests.post(
-            f"{base_url}/v1/orders/", 
+            f"{base_url}/v1/orders/",
             json=order_data,
             headers=headers_with_idempotency,
-            timeout=5
+            timeout=5,
         )
-        
+
         # Should fail at database but accept idempotency key
         if response.status_code in [400, 500]:
-            print("✅ Idempotency-Key header accepted (failed at validation/database as expected)")
+            print(
+                "✅ Idempotency-Key header accepted (failed at validation/database as expected)"
+            )
         else:
             print(f"❌ Unexpected status with idempotency key: {response.status_code}")
             return False
-            
+
     except Exception as e:
         print(f"❌ Idempotency key test failed: {e}")
         return False
-    
+
     # Test 3: Invalid SKU format validation
     print("\n📝 Test 3: Invalid SKU format validation...")
     try:
-        invalid_order_data = {
-            "items": [
-                {"sku": "INVALID-SKU", "quantity": 1}
-            ]
-        }
-        
+        invalid_order_data = {"items": [{"sku": "INVALID-SKU", "quantity": 1}]}
+
         response = requests.post(
-            f"{base_url}/v1/orders/", 
+            f"{base_url}/v1/orders/",
             json=invalid_order_data,
             headers=headers,
-            timeout=5
+            timeout=5,
         )
-        
+
         # Should validate SKU format before database
         if response.status_code in [400, 422, 500]:
             print("✅ SKU validation working (invalid format rejected)")
         else:
             print(f"❌ Should reject invalid SKU, got: {response.status_code}")
             return False
-            
+
     except Exception as e:
         print(f"❌ SKU validation test failed: {e}")
         return False
-    
+
     # Test 4: Empty order validation
     print("\n📝 Test 4: Empty order validation...")
     try:
         empty_order_data = {"items": []}
-        
+
         response = requests.post(
-            f"{base_url}/v1/orders/", 
-            json=empty_order_data,
-            headers=headers,
-            timeout=5
+            f"{base_url}/v1/orders/", json=empty_order_data, headers=headers, timeout=5
         )
-        
+
         # Should reject empty orders
         if response.status_code in [400, 422]:
             print("✅ Empty order validation working")
@@ -135,30 +122,32 @@ def test_order_idempotency_without_database():
         else:
             print(f"❌ Should reject empty order, got: {response.status_code}")
             return False
-            
+
     except Exception as e:
         print(f"❌ Empty order test failed: {e}")
         return False
-    
+
     # Test 5: Request without authentication for idempotency endpoint
     print("\n📝 Test 5: Unauthenticated order creation...")
     try:
         response = requests.post(
-            f"{base_url}/v1/orders/", 
+            f"{base_url}/v1/orders/",
             json={"items": [{"sku": "PROD-123", "quantity": 1}]},
-            timeout=5
+            timeout=5,
         )
-        
+
         if response.status_code in [401, 403]:
             print("✅ Unauthenticated order creation properly blocked")
         else:
-            print(f"❌ Should block unauthenticated access, got: {response.status_code}")
+            print(
+                f"❌ Should block unauthenticated access, got: {response.status_code}"
+            )
             return False
-            
+
     except Exception as e:
         print(f"❌ Unauthenticated test failed: {e}")
         return False
-    
+
     print("\n🎉 All order idempotency tests passed!")
     return True
 
@@ -167,44 +156,44 @@ def test_idempotency_key_patterns():
     """Test different idempotency key patterns and validation"""
     print("\n🧪 Testing Idempotency Key Patterns")
     print("=" * 60)
-    
+
     base_url = "http://localhost:8000"
     token = jwt_manager.create_access_token(123, 456, "test@example.com", ["user"])
     headers = {"Authorization": f"Bearer {token}"}
-    
+
     order_data = {"items": [{"sku": "PROD-999", "quantity": 1}]}
-    
+
     # Test different idempotency key formats
     idempotency_keys = [
         "simple-key",
-        "UUID-12345678-1234-1234-1234-123456789012", 
+        "UUID-12345678-1234-1234-1234-123456789012",
         "order-2024-08-26-001",
-        "user-123-tenant-456-timestamp-1234567890"
+        "user-123-tenant-456-timestamp-1234567890",
     ]
-    
+
     print("📝 Testing various idempotency key formats...")
-    
+
     passed_keys = 0
     for i, key in enumerate(idempotency_keys, 1):
         try:
             test_headers = {**headers, "Idempotency-Key": key}
             response = requests.post(
-                f"{base_url}/v1/orders/", 
+                f"{base_url}/v1/orders/",
                 json=order_data,
                 headers=test_headers,
-                timeout=5
+                timeout=5,
             )
-            
+
             # All should be accepted (fail at database level)
             if response.status_code in [400, 500]:
                 print(f"✅ Idempotency key format {i}: '{key[:30]}...' accepted")
                 passed_keys += 1
             else:
                 print(f"❌ Key format {i} rejected: {response.status_code}")
-        
+
         except Exception as e:
             print(f"❌ Key format {i} error: {e}")
-    
+
     if passed_keys == len(idempotency_keys):
         print(f"✅ All {len(idempotency_keys)} idempotency key formats accepted")
         return True
@@ -217,24 +206,26 @@ def run_order_idempotency_tests():
     """Run all order idempotency tests"""
     print("🚀 Starting Order Idempotency Tests")
     print("=" * 80)
-    
+
     # Check server status
     try:
         response = requests.get("http://localhost:8000/health", timeout=5)
         print(f"✅ Server running (status: {response.status_code})")
     except Exception as e:
         print(f"❌ Server not accessible: {e}")
-        print("Please start server: source .venv/bin/activate && cd services/api && python main.py")
+        print(
+            "Please start server: source .venv/bin/activate && cd services/api && python main.py"
+        )
         return False
-    
+
     test_functions = [
         ("Order Idempotency System", test_order_idempotency_without_database),
-        ("Idempotency Key Patterns", test_idempotency_key_patterns)
+        ("Idempotency Key Patterns", test_idempotency_key_patterns),
     ]
-    
+
     passed = 0
     failed = 0
-    
+
     for test_name, test_func in test_functions:
         try:
             if test_func():
@@ -246,13 +237,13 @@ def run_order_idempotency_tests():
         except Exception as e:
             failed += 1
             print(f"❌ {test_name}: EXCEPTION - {e}")
-    
+
     print("\n" + "=" * 80)
-    print(f"📊 Order Idempotency Test Results:")
+    print("📊 Order Idempotency Test Results:")
     print(f"   ✅ Passed: {passed}")
     print(f"   ❌ Failed: {failed}")
     print(f"   📈 Success Rate: {(passed / (passed + failed) * 100):.1f}%")
-    
+
     if failed == 0:
         print("\n🎉 All order idempotency tests passed! Implementation ready!")
         return True
