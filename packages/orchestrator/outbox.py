@@ -71,10 +71,7 @@ class OutboxConsumer:
             logger.warning("Outbox consumer is already running")
             return
 
-        logger.info(
-            f"Starting outbox consumer (poll interval: {self.poll_interval}s, "
-            f"batch size: {self.batch_size})"
-        )
+        logger.info(f"Starting outbox consumer (poll interval: {self.poll_interval}s, batch size: {self.batch_size})")
 
         # Initialize connections
         await self._init_connections()
@@ -141,12 +138,7 @@ class OutboxConsumer:
         """Fetch unprocessed events from the outbox table"""
         async with AsyncSessionLocal() as session:
             # Fetch unprocessed events ordered by created_at
-            query = (
-                select(Outbox)
-                .where(not Outbox.processed)
-                .order_by(Outbox.created_at)
-                .limit(self.batch_size)
-            )
+            query = select(Outbox).where(not Outbox.processed).order_by(Outbox.created_at).limit(self.batch_size)
 
             result = await session.execute(query)
             outbox_records = result.scalars().all()
@@ -175,9 +167,7 @@ class OutboxConsumer:
                 await self._mark_event_processed(event.id)
                 self.processed_count += 1
 
-                logger.debug(
-                    f"Successfully processed event {event.id} ({event.event_type})"
-                )
+                logger.debug(f"Successfully processed event {event.id} ({event.event_type})")
 
             except Exception as e:
                 self.error_count += 1
@@ -225,11 +215,7 @@ class OutboxConsumer:
     async def _increment_retry_count(self, event_id: int):
         """Increment retry count for a failed event"""
         async with AsyncSessionLocal() as session:
-            query = (
-                update(Outbox)
-                .where(Outbox.id == event_id)
-                .values(retry_count=Outbox.retry_count + 1)
-            )
+            query = update(Outbox).where(Outbox.id == event_id).values(retry_count=Outbox.retry_count + 1)
 
             await session.execute(query)
             await session.commit()
@@ -238,15 +224,12 @@ class OutboxConsumer:
         """Handle events that have exceeded max retries"""
         if self.config.dlq_enabled:
             await self._move_to_dlq(event)
-            logger.warning(
-                f"Event {event.id} moved to DLQ after {event.retry_count} retries"
-            )
+            logger.warning(f"Event {event.id} moved to DLQ after {event.retry_count} retries")
         else:
             # Just mark as processed to prevent infinite retries
             await self._mark_event_processed(event.id)
             logger.error(
-                f"Event {event.id} marked as processed after {event.retry_count} "
-                f"failed retries (DLQ disabled)"
+                f"Event {event.id} marked as processed after {event.retry_count} failed retries (DLQ disabled)"
             )
 
     async def _move_to_dlq(self, event: OutboxEvent):

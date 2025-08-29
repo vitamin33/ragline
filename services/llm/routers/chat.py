@@ -76,13 +76,9 @@ class ChatRequest(BaseModel):
     tools_enabled: bool = Field(default=True, description="Enable tool calling")
     tenant_id: Optional[str] = Field(None, description="Tenant ID for multi-tenancy")
     user_id: Optional[str] = Field(None, description="User ID for context")
-    session_id: Optional[str] = Field(
-        None, description="Session ID for conversation memory"
-    )
+    session_id: Optional[str] = Field(None, description="Session ID for conversation memory")
     max_tokens: Optional[int] = Field(None, description="Override max response tokens")
-    use_conversation_memory: bool = Field(
-        default=True, description="Use conversation history"
-    )
+    use_conversation_memory: bool = Field(default=True, description="Use conversation history")
 
 
 class ChatResponse(BaseModel):
@@ -90,9 +86,7 @@ class ChatResponse(BaseModel):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     choices: List[Dict[str, Any]] = Field(default_factory=list)
-    usage: Optional[Dict[str, Any]] = (
-        None  # Changed from int to Any to handle complex usage objects
-    )
+    usage: Optional[Dict[str, Any]] = None  # Changed from int to Any to handle complex usage objects
     created: int = Field(default_factory=lambda: int(datetime.now().timestamp()))
 
 
@@ -150,18 +144,13 @@ async def generate_chat_stream(
         source_messages = messages or request.messages
 
         # Convert messages to LLM format
-        llm_messages = [
-            LLMChatMessage(role=msg.role, content=msg.content)
-            for msg in source_messages
-        ]
+        llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in source_messages]
 
         # Define tools if enabled
         tools = None
         if request.tools_enabled and TOOLS_AVAILABLE:
             try:
-                tool_manager = get_tool_manager(
-                    tenant_id=request.tenant_id, user_id=request.user_id
-                )
+                tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
                 tools = tool_manager.get_openai_functions()
             except Exception as e:
                 print(f"Warning: Failed to load tools for streaming: {e}")
@@ -257,9 +246,7 @@ async def chat_completions(request: ChatRequest):
         token_manager = TokenLimitManager()
 
         # Validate input token count
-        message_dicts = [
-            {"role": msg.role, "content": msg.content} for msg in request.messages
-        ]
+        message_dicts = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         is_valid, token_count = token_manager.validate_input_tokens(message_dicts)
 
         if not is_valid:
@@ -272,19 +259,11 @@ async def chat_completions(request: ChatRequest):
 
     # Add conversation memory if available
     enhanced_messages = request.messages
-    if (
-        ENHANCED_STREAMING_AVAILABLE
-        and request.use_conversation_memory
-        and request.session_id
-    ):
+    if ENHANCED_STREAMING_AVAILABLE and request.use_conversation_memory and request.session_id:
         streaming_manager = get_streaming_manager()
 
         # Get conversation context
-        conversation_context = (
-            streaming_manager.conversation_memory.get_conversation_context(
-                request.session_id
-            )
-        )
+        conversation_context = streaming_manager.conversation_memory.get_conversation_context(request.session_id)
 
         if conversation_context:
             # Add conversation history before current messages
@@ -305,23 +284,14 @@ async def chat_completions(request: ChatRequest):
                 truncated_dicts = token_manager.truncate_context(
                     [{"role": msg.role, "content": msg.content} for msg in all_messages]
                 )
-                enhanced_messages = [
-                    ChatMessage(role=msg["role"], content=msg["content"])
-                    for msg in truncated_dicts
-                ]
+                enhanced_messages = [ChatMessage(role=msg["role"], content=msg["content"]) for msg in truncated_dicts]
             else:
                 enhanced_messages = all_messages
 
-            logger.info(
-                f"Added conversation context: {len(conversation_context)} previous messages"
-            )
+            logger.info(f"Added conversation context: {len(conversation_context)} previous messages")
 
     # Store user message in conversation memory
-    if (
-        ENHANCED_STREAMING_AVAILABLE
-        and request.session_id
-        and request.use_conversation_memory
-    ):
+    if ENHANCED_STREAMING_AVAILABLE and request.session_id and request.use_conversation_memory:
         streaming_manager = get_streaming_manager()
         for msg in request.messages:
             if msg.role == "user":
@@ -355,18 +325,13 @@ async def chat_completions(request: ChatRequest):
             client = get_llm_client()
 
             # Convert messages to LLM format
-            llm_messages = [
-                LLMChatMessage(role=msg.role, content=msg.content)
-                for msg in request.messages
-            ]
+            llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in request.messages]
 
             # Define tools if enabled
             tools = None
             if request.tools_enabled and TOOLS_AVAILABLE:
                 try:
-                    tool_manager = get_tool_manager(
-                        tenant_id=request.tenant_id, user_id=request.user_id
-                    )
+                    tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
                     tools = tool_manager.get_openai_functions()
                 except Exception as e:
                     print(f"Warning: Failed to load tools for non-streaming: {e}")
@@ -447,9 +412,7 @@ async def websocket_chat(websocket: WebSocket, client_id: str):
                             await manager.send_personal_message(message_data, client_id)
 
             except (json.JSONDecodeError, ValueError) as e:
-                error_msg = json.dumps(
-                    {"type": "error", "message": f"Invalid request: {str(e)}"}
-                )
+                error_msg = json.dumps({"type": "error", "message": f"Invalid request: {str(e)}"})
                 await manager.send_personal_message(error_msg, client_id)
 
     except WebSocketDisconnect:
@@ -510,9 +473,7 @@ async def get_session_stats(session_id: str):
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get session stats: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get session stats: {str(e)}")
 
 
 @router.get("/sessions/{session_id}/context")
@@ -524,9 +485,7 @@ async def get_session_context(session_id: str, max_tokens: Optional[int] = None)
 
     try:
         streaming_manager = get_streaming_manager()
-        context = streaming_manager.conversation_memory.get_conversation_context(
-            session_id, max_tokens
-        )
+        context = streaming_manager.conversation_memory.get_conversation_context(session_id, max_tokens)
 
         return {
             "session_id": session_id,
@@ -537,6 +496,4 @@ async def get_session_context(session_id: str, max_tokens: Optional[int] = None)
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get session context: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to get session context: {str(e)}")

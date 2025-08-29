@@ -78,14 +78,10 @@ async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_
     token_data = jwt_manager.verify_refresh_token(request.refresh_token)
 
     if not token_data:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
     # Get user from database
-    user = await AuthService.get_user_by_id(
-        db, user_id=token_data["user_id"], tenant_id=token_data["tenant_id"]
-    )
+    user = await AuthService.get_user_by_id(db, user_id=token_data["user_id"], tenant_id=token_data["tenant_id"])
 
     if not user:
         raise HTTPException(

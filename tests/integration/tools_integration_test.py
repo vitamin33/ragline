@@ -49,17 +49,13 @@ async def test_tools():
     # Test retrieve_menu tool
     print("\n3. Testing retrieve_menu tool")
     try:
-        result = await manager.execute_tool(
-            "retrieve_menu", {"query": "pizza", "category": "mains", "limit": 3}
-        )
+        result = await manager.execute_tool("retrieve_menu", {"query": "pizza", "category": "mains", "limit": 3})
 
         if result.success:
             data = result.data
             print(f"   ✅ Success: Found {data['returned']} items")
             print(f"   📊 Query: {data['filters_applied']['query']}")
-            print(
-                f"   🍕 First item: {data['items'][0]['name'] if data['items'] else 'None'}"
-            )
+            print(f"   🍕 First item: {data['items'][0]['name'] if data['items'] else 'None'}")
         else:
             print(f"   ❌ Failed: {result.error}")
 
@@ -69,9 +65,7 @@ async def test_tools():
     # Test apply_promos tool
     print("\n4. Testing apply_promos tool")
     try:
-        result = await manager.execute_tool(
-            "apply_promos", {"promo_code": "SAVE20", "order_total": 30.00}
-        )
+        result = await manager.execute_tool("apply_promos", {"promo_code": "SAVE20", "order_total": 30.00})
 
         if result.success:
             data = result.data
@@ -121,9 +115,7 @@ async def test_tools():
     print(f"   Invalid tool: {'✅' if not result.success else '❌'} {result.error}")
 
     # Test invalid promo code
-    result = await manager.execute_tool(
-        "apply_promos", {"promo_code": "INVALID123", "order_total": 20.00}
-    )
+    result = await manager.execute_tool("apply_promos", {"promo_code": "INVALID123", "order_total": 20.00})
     print(f"   Invalid promo: {'✅' if not result.success else '❌'} {result.error}")
 
     # Test invalid arguments
@@ -165,9 +157,7 @@ async def test_tools():
                 items_found = result["data"]["returned"]
                 print(f"   📊 Items found: {items_found}")
             else:
-                print(
-                    f"   ⚠️  Tool call succeeded but query had no results: {result.get('error', 'Unknown error')}"
-                )
+                print(f"   ⚠️  Tool call succeeded but query had no results: {result.get('error', 'Unknown error')}")
         else:
             print("   ❌ No results returned")
 
@@ -179,9 +169,7 @@ async def test_tools():
 
 if __name__ == "__main__":
     if not TOOLS_AVAILABLE:
-        print(
-            "⚠️  Tools not available. Make sure you're running from the correct directory."
-        )
+        print("⚠️  Tools not available. Make sure you're running from the correct directory.")
         sys.exit(1)
 
     asyncio.run(test_tools())

@@ -63,9 +63,7 @@ async def comprehensive_streaming_test():
                     buffer.flush()
                     flush_count += 1
 
-            print(
-                f"   ✅ {config['name']} buffer: {flush_count} flushes for {len(test_data)} items"
-            )
+            print(f"   ✅ {config['name']} buffer: {flush_count} flushes for {len(test_data)} items")
 
         # === TEST 2: CONVERSATION MEMORY STRESS TEST ===
         print("\n🧠 TEST 2: Conversation Memory Stress Test")
@@ -111,23 +109,17 @@ async def comprehensive_streaming_test():
         for limit in context_limits:
             context = memory.get_conversation_context(session_id, limit)
             total_tokens = sum(msg.get("token_count", 0) for msg in context)
-            print(
-                f"   ✅ Context with {limit} token limit: {len(context)} messages, {total_tokens} tokens"
-            )
+            print(f"   ✅ Context with {limit} token limit: {len(context)} messages, {total_tokens} tokens")
 
         # Test session stats
         stats = memory.get_session_stats(session_id)
-        print(
-            f"   📊 Session stats: {stats['total_messages']} messages, {stats['total_tokens']} tokens"
-        )
+        print(f"   📊 Session stats: {stats['total_messages']} messages, {stats['total_tokens']} tokens")
 
         # === TEST 3: TOKEN LIMIT VALIDATION ===
         print("\n🔢 TEST 3: Token Limit Validation")
         print("-" * 40)
 
-        token_manager = TokenLimitManager(
-            max_input_tokens=200, max_output_tokens=100, context_window=150
-        )
+        token_manager = TokenLimitManager(max_input_tokens=200, max_output_tokens=100, context_window=150)
 
         # Test input validation with various message lengths
         test_scenarios = [
@@ -147,18 +139,11 @@ async def comprehensive_streaming_test():
             print(f"   {status} {scenario['name']}: {token_count} tokens")
 
         # Test context truncation
-        long_conversation = [
-            {"role": "user", "content": f"Message {i} with some content here"}
-            for i in range(15)
-        ]
+        long_conversation = [{"role": "user", "content": f"Message {i} with some content here"} for i in range(15)]
 
-        original_tokens = sum(
-            token_manager.count_tokens(msg["content"]) for msg in long_conversation
-        )
+        original_tokens = sum(token_manager.count_tokens(msg["content"]) for msg in long_conversation)
         truncated = token_manager.truncate_context(long_conversation, target_tokens=100)
-        truncated_tokens = sum(
-            token_manager.count_tokens(msg["content"]) for msg in truncated
-        )
+        truncated_tokens = sum(token_manager.count_tokens(msg["content"]) for msg in truncated)
 
         print(
             f"   ✅ Truncation: {len(long_conversation)} msgs ({original_tokens} tokens) → {len(truncated)} msgs ({truncated_tokens} tokens)"
@@ -188,17 +173,13 @@ async def comprehensive_streaming_test():
         for stream_id in stream_ids:
             info = streaming_manager.get_stream_info(stream_id)
             if info:
-                print(
-                    f"   📊 Stream {stream_id}: session={info['session_id']}, user={info['user_id']}"
-                )
+                print(f"   📊 Stream {stream_id}: session={info['session_id']}, user={info['user_id']}")
 
         # Unregister streams
         for stream_id in stream_ids:
             streaming_manager.unregister_stream(stream_id)
 
-        print(
-            f"   ✅ Unregistered all streams: {len(streaming_manager.active_streams)} remaining"
-        )
+        print(f"   ✅ Unregistered all streams: {len(streaming_manager.active_streams)} remaining")
 
         # === TEST 5: PERFORMANCE BENCHMARKING ===
         print("\n⚡ TEST 5: Performance Benchmarking")
@@ -230,10 +211,7 @@ async def comprehensive_streaming_test():
 
         # Test token counting performance
         start_time = time.time()
-        test_text = (
-            "This is a performance test for token counting with realistic restaurant conversation content."
-            * 10
-        )
+        test_text = "This is a performance test for token counting with realistic restaurant conversation content." * 10
 
         for _ in range(20):
             token_count = token_manager.count_tokens(test_text)

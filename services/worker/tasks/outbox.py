@@ -137,9 +137,7 @@ def get_outbox_metrics(self) -> Dict[str, Any]:
 
 
 @app.task(bind=True, name="services.worker.tasks.outbox.reprocess_dlq")
-def reprocess_dlq(
-    self, aggregate_type: str = "order", limit: int = 10
-) -> Dict[str, Any]:
+def reprocess_dlq(self, aggregate_type: str = "order", limit: int = 10) -> Dict[str, Any]:
     """
     Reprocess events from Dead Letter Queue.
 
@@ -153,13 +151,9 @@ def reprocess_dlq(
             config = WorkerConfig()
             reprocessor = OutboxReprocessor(config)
 
-            reprocessed_count = await reprocessor.reprocess_dlq_events(
-                aggregate_type, limit
-            )
+            reprocessed_count = await reprocessor.reprocess_dlq_events(aggregate_type, limit)
 
-            logger.info(
-                f"Reprocessed {reprocessed_count} events from DLQ for {aggregate_type}"
-            )
+            logger.info(f"Reprocessed {reprocessed_count} events from DLQ for {aggregate_type}")
 
             return {
                 "status": "success",
@@ -203,11 +197,7 @@ def health_check_outbox(self) -> Dict[str, Any]:
             try:
                 async with AsyncSessionLocal() as session:
                     # Count unprocessed events
-                    unprocessed_query = (
-                        select(func.count())
-                        .select_from(Outbox)
-                        .where(Outbox.processed == False)
-                    )
+                    unprocessed_query = select(func.count()).select_from(Outbox).where(not Outbox.processed)
                     unprocessed_result = await session.execute(unprocessed_query)
                     unprocessed_count = unprocessed_result.scalar()
 
@@ -241,7 +231,7 @@ def health_check_outbox(self) -> Dict[str, Any]:
                     try:
                         length = await redis_client.xlen(stream)
                         stream_lengths[stream] = length
-                    except:
+                    except Exception:
                         stream_lengths[stream] = 0
 
                 await redis_client.close()
@@ -263,7 +253,7 @@ def health_check_outbox(self) -> Dict[str, Any]:
                 consumer = await get_outbox_consumer()
                 metrics = await consumer.get_metrics()
                 health_data["consumer_metrics"] = metrics
-            except:
+            except Exception:
                 health_data["consumer_metrics"] = {"status": "not_initialized"}
 
             return health_data

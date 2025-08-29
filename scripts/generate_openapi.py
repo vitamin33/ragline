@@ -79,15 +79,11 @@ def generate_openapi_spec():
 
         # Write YAML file
         with open(openapi_file, "w") as f:
-            yaml.dump(
-                openapi_json, f, default_flow_style=False, sort_keys=False, indent=2
-            )
+            yaml.dump(openapi_json, f, default_flow_style=False, sort_keys=False, indent=2)
 
         print(f"✅ OpenAPI specification generated: {openapi_file}")
         print(f"📊 Endpoints documented: {len(openapi_json.get('paths', {}))}")
-        print(
-            f"📋 Components defined: {len(openapi_json.get('components', {}).get('schemas', {}))}"
-        )
+        print(f"📋 Components defined: {len(openapi_json.get('components', {}).get('schemas', {}))}")
 
         # Also save JSON version for debugging
         json_file = contracts_dir / "openapi.json"

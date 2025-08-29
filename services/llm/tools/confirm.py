@@ -154,9 +154,7 @@ class ConfirmTool(BaseTool):
 
         return confirmation_data
 
-    def _generate_confirmation(
-        self, action: str, details: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _generate_confirmation(self, action: str, details: Dict[str, Any]) -> Dict[str, Any]:
         """Generate action-specific confirmation data."""
 
         if action == "place_order":
@@ -182,9 +180,7 @@ class ConfirmTool(BaseTool):
         payment_method = details.get("payment_method", "Default payment method")
 
         # Calculate estimated delivery time (mock)
-        estimated_delivery = (datetime.now() + timedelta(minutes=30)).strftime(
-            "%I:%M %p"
-        )
+        estimated_delivery = (datetime.now() + timedelta(minutes=30)).strftime("%I:%M %p")
 
         return {
             "action": "place_order",

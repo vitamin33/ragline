@@ -7,9 +7,7 @@ from sqlalchemy.pool import NullPool
 from .models import Base
 
 # Database URL from environment variable
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline"
-)
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline")
 
 # Create async engine
 engine = create_async_engine(

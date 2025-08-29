@@ -17,9 +17,7 @@ config = context.config
 
 # Set sqlalchemy.url from environment variable if not set in config
 if not config.get_main_option("sqlalchemy.url"):
-    db_url = os.getenv(
-        "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline"
-    )
+    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline")
     # Convert async URL to sync for Alembic
     if "postgresql+asyncpg" in db_url:
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")

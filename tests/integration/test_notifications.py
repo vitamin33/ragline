@@ -104,9 +104,7 @@ async def test_connection_manager():
                 filtering_correct += 1
                 print(f"   ✅ {test_event['name']}: {actual_count} recipients")
             else:
-                print(
-                    f"   ❌ {test_event['name']}: {actual_count} recipients (expected {expected_count})"
-                )
+                print(f"   ❌ {test_event['name']}: {actual_count} recipients (expected {expected_count})")
 
         # Test 3: Connection cleanup
         original_count = len(manager._connections)
@@ -116,9 +114,7 @@ async def test_connection_manager():
         # They shouldn't be cleaned up immediately since they're healthy
         cleanup_working = after_cleanup == original_count
 
-        print(
-            f"   📊 Cleanup test: {after_cleanup} connections remain (from {original_count})"
-        )
+        print(f"   📊 Cleanup test: {after_cleanup} connections remain (from {original_count})")
 
         # Test 4: Statistics
         stats = manager.get_stats()
@@ -131,9 +127,7 @@ async def test_connection_manager():
             ]
         )
 
-        print(
-            f"   📊 Stats: {stats['total_connections']} total, {stats['healthy_connections']} healthy"
-        )
+        print(f"   📊 Stats: {stats['total_connections']} total, {stats['healthy_connections']} healthy")
 
         test_results = [
             added_connections == len(test_clients),
@@ -175,9 +169,7 @@ async def test_stream_subscription():
         print(f"   📊 Monitoring {len(notifier.stream_configs)} streams:")
 
         for stream_topic, stream_config in notifier.stream_configs.items():
-            print(
-                f"      📍 {stream_topic.value}: group={stream_config['consumer_group']}"
-            )
+            print(f"      📍 {stream_topic.value}: group={stream_config['consumer_group']}")
 
         # Test subscription configuration
         expected_streams = [
@@ -187,16 +179,12 @@ async def test_stream_subscription():
         ]
         configured_streams = list(notifier.stream_configs.keys())
 
-        has_required_streams = all(
-            stream in configured_streams for stream in expected_streams
-        )
+        has_required_streams = all(stream in configured_streams for stream in expected_streams)
         print(f"   ✅ Required streams configured: {has_required_streams}")
 
         # Test stream configuration validity
         config_valid = all(
-            "consumer_group" in config
-            and "consumer_name" in config
-            and "block_time" in config
+            "consumer_group" in config and "consumer_name" in config and "block_time" in config
             for config in notifier.stream_configs.values()
         )
         print(f"   ✅ Stream configurations valid: {config_valid}")
@@ -371,28 +359,20 @@ async def test_celery_notification_tasks():
         if stats_success:
             notifier_stats = stats_response["notifier"]
             conn_stats = stats_response["connections"]
-            print(
-                f"         Streams monitored: {notifier_stats.get('streams_monitored', 0)}"
-            )
-            print(
-                f"         Total connections: {conn_stats.get('total_connections', 0)}"
-            )
+            print(f"         Streams monitored: {notifier_stats.get('streams_monitored', 0)}")
+            print(f"         Total connections: {conn_stats.get('total_connections', 0)}")
 
         # Test 3: Send test notification
         print("   📧 Testing send_test_notification...")
 
-        test_notif_result = send_test_notification.delay(
-            user_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4())
-        )
+        test_notif_result = send_test_notification.delay(user_id=str(uuid.uuid4()), tenant_id=str(uuid.uuid4()))
 
         test_notif_response = test_notif_result.get()
         test_notif_success = test_notif_response.get("status") == "success"
         print(f"      ✅ Send test notification: {test_notif_success}")
         if test_notif_success:
             print(f"         Event ID: {test_notif_response.get('event_id')}")
-            print(
-                f"         Stream message: {test_notif_response.get('stream_message_id')}"
-            )
+            print(f"         Stream message: {test_notif_response.get('stream_message_id')}")
 
         # Test 4: Remove client connection
         if add_success:
@@ -462,14 +442,10 @@ async def test_stream_to_notification_flow():
         for i, event_info in enumerate(test_events):
             # Create order event
             order_event = EventFactory.create_enriched_order_event(
-                tenant_id=uuid.UUID(
-                    "12345678-1234-5678-9abc-123456789abc"
-                ),  # Use fixed UUID for flow_tenant
+                tenant_id=uuid.UUID("12345678-1234-5678-9abc-123456789abc"),  # Use fixed UUID for flow_tenant
                 order_id=uuid.uuid4(),
                 status=event_info["status"],
-                user_id=uuid.UUID(
-                    "87654321-4321-8765-cba9-987654321abc"
-                ),  # Use fixed UUID for flow_user
+                user_id=uuid.UUID("87654321-4321-8765-cba9-987654321abc"),  # Use fixed UUID for flow_user
                 reason=event_info["reason"],
             )
 
@@ -509,9 +485,7 @@ async def test_stream_to_notification_flow():
         if published_events > 0:
             # Simulate processing one message
             try:
-                await notifier._process_stream(
-                    "ragline:stream:orders", notifier.stream_configs[StreamTopic.ORDERS]
-                )
+                await notifier._process_stream("ragline:stream:orders", notifier.stream_configs[StreamTopic.ORDERS])
 
                 processing_works = True
                 print("   ✅ Stream processing simulation: Success")
@@ -575,9 +549,7 @@ async def test_backpressure_handling():
                 added_connections += 1
 
         # Should be limited to max_connections_per_user (10)
-        limit_working = (
-            added_connections <= notifier.connection_manager.max_connections_per_user
-        )
+        limit_working = added_connections <= notifier.connection_manager.max_connections_per_user
         print(
             f"      📊 Connections added: {added_connections} (limit: {notifier.connection_manager.max_connections_per_user})"
         )
@@ -605,9 +577,7 @@ async def test_backpressure_handling():
         )
 
         # Simulate sending large message
-        send_result = await notifier._send_to_connection(
-            test_client, large_notification
-        )
+        send_result = await notifier._send_to_connection(test_client, large_notification)
 
         # Should be rejected due to size
         size_limit_working = not send_result  # Should return False for large message

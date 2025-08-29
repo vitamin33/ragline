@@ -115,9 +115,7 @@ async def create_order(
         # Fetch products and calculate total
         for item in order.items:
             try:
-                product_id = int(
-                    item.sku.split("-")[-1]
-                )  # Extract ID from SKU like "PROD-123"
+                product_id = int(item.sku.split("-")[-1])  # Extract ID from SKU like "PROD-123"
             except (ValueError, IndexError):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

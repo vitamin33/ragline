@@ -83,9 +83,7 @@ class StreamMessage:
             try:
                 # Redis stream ID format: timestamp-sequence
                 timestamp_ms = int(self.id.split("-")[0])
-                self.timestamp = datetime.fromtimestamp(
-                    timestamp_ms / 1000, tz=timezone.utc
-                )
+                self.timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=timezone.utc)
             except (ValueError, IndexError):
                 self.timestamp = datetime.now(timezone.utc)
 
@@ -119,9 +117,7 @@ class RedisStreamClient:
     Provides high-level operations for Redis Streams with retry logic.
     """
 
-    def __init__(
-        self, config: WorkerConfig, retry_config: Optional[RetryConfig] = None
-    ):
+    def __init__(self, config: WorkerConfig, retry_config: Optional[RetryConfig] = None):
         self.config = config
         self.retry_config = retry_config or RetryConfig()
 
@@ -209,9 +205,7 @@ class RedisStreamClient:
         if self._initialized:
             return
 
-        logger.info(
-            f"Initializing Redis connection pool to {self.pool_settings['host']}:{self.pool_settings['port']}"
-        )
+        logger.info(f"Initializing Redis connection pool to {self.pool_settings['host']}:{self.pool_settings['port']}")
 
         try:
             self.pool = ConnectionPool(**self.pool_settings)
@@ -245,9 +239,7 @@ class RedisStreamClient:
 
         yield self.client
 
-    async def _execute_with_retry(
-        self, operation_name: str, operation, *args, **kwargs
-    ):
+    async def _execute_with_retry(self, operation_name: str, operation, *args, **kwargs):
         """Execute Redis operation with retry logic"""
         last_exception = None
 
@@ -266,9 +258,7 @@ class RedisStreamClient:
                 self.failed_operations += 1
 
                 if attempt == self.retry_config.max_retries:
-                    logger.error(
-                        f"Operation {operation_name} failed after {attempt + 1} attempts: {e}"
-                    )
+                    logger.error(f"Operation {operation_name} failed after {attempt + 1} attempts: {e}")
                     break
 
                 # Calculate delay
@@ -284,9 +274,7 @@ class RedisStreamClient:
             except Exception as e:
                 # Non-retryable exception
                 self.failed_operations += 1
-                logger.error(
-                    f"Operation {operation_name} failed with non-retryable error: {e}"
-                )
+                logger.error(f"Operation {operation_name} failed with non-retryable error: {e}")
                 raise
 
         # All retries exhausted
@@ -295,9 +283,7 @@ class RedisStreamClient:
     def _calculate_delay(self, attempt: int) -> float:
         """Calculate delay for retry attempt"""
         if self.retry_config.strategy == RetryStrategy.EXPONENTIAL_BACKOFF:
-            delay = self.retry_config.base_delay * (
-                self.retry_config.backoff_multiplier**attempt
-            )
+            delay = self.retry_config.base_delay * (self.retry_config.backoff_multiplier**attempt)
         elif self.retry_config.strategy == RetryStrategy.LINEAR_BACKOFF:
             delay = self.retry_config.base_delay * (attempt + 1)
         else:  # FIXED_DELAY
@@ -315,9 +301,7 @@ class RedisStreamClient:
 
     # Stream Operations
 
-    async def create_consumer_group(
-        self, stream_config: StreamConfig, mkstream: bool = True
-    ):
+    async def create_consumer_group(self, stream_config: StreamConfig, mkstream: bool = True):
         """Create consumer group for a stream"""
 
         async def _create_group(client: redis.Redis):
@@ -328,21 +312,15 @@ class RedisStreamClient:
                     id="0",
                     mkstream=mkstream,
                 )
-                logger.info(
-                    f"Created consumer group {stream_config.consumer_group} for stream {stream_config.name}"
-                )
+                logger.info(f"Created consumer group {stream_config.consumer_group} for stream {stream_config.name}")
                 return True
             except ResponseError as e:
                 if "BUSYGROUP" in str(e):
-                    logger.debug(
-                        f"Consumer group {stream_config.consumer_group} already exists"
-                    )
+                    logger.debug(f"Consumer group {stream_config.consumer_group} already exists")
                     return True
                 raise
 
-        return await self._execute_with_retry(
-            f"create_consumer_group_{stream_config.name}", _create_group
-        )
+        return await self._execute_with_retry(f"create_consumer_group_{stream_config.name}", _create_group)
 
     async def add_to_stream(
         self,
@@ -356,16 +334,12 @@ class RedisStreamClient:
         async def _add_message(client: redis.Redis):
             return await client.xadd(stream_name, fields, id=message_id, maxlen=max_len)
 
-        result = await self._execute_with_retry(
-            f"add_to_stream_{stream_name}", _add_message
-        )
+        result = await self._execute_with_retry(f"add_to_stream_{stream_name}", _add_message)
 
         logger.debug(f"Added message {result} to stream {stream_name}")
         return result
 
-    async def read_from_stream(
-        self, stream_config: StreamConfig, from_id: str = ">"
-    ) -> List[StreamMessage]:
+    async def read_from_stream(self, stream_config: StreamConfig, from_id: str = ">") -> List[StreamMessage]:
         """Read messages from stream using consumer group"""
 
         async def _read_messages(client: redis.Redis):
@@ -386,38 +360,28 @@ class RedisStreamClient:
                 for msg_id, fields in stream_messages:
                     # Convert bytes to strings
                     string_fields = {
-                        k.decode() if isinstance(k, bytes) else k: v.decode()
-                        if isinstance(v, bytes)
-                        else v
+                        k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v
                         for k, v in fields.items()
                     }
 
                     message = StreamMessage(
                         id=msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
                         fields=string_fields,
-                        stream_name=stream_name.decode()
-                        if isinstance(stream_name, bytes)
-                        else stream_name,
+                        stream_name=stream_name.decode() if isinstance(stream_name, bytes) else stream_name,
                     )
                     messages.append(message)
 
             return messages
 
-        return await self._execute_with_retry(
-            f"read_from_stream_{stream_config.name}", _read_messages
-        )
+        return await self._execute_with_retry(f"read_from_stream_{stream_config.name}", _read_messages)
 
-    async def acknowledge_message(
-        self, stream_name: str, consumer_group: str, message_id: str
-    ):
+    async def acknowledge_message(self, stream_name: str, consumer_group: str, message_id: str):
         """Acknowledge message processing"""
 
         async def _ack_message(client: redis.Redis):
             return await client.xack(stream_name, consumer_group, message_id)
 
-        return await self._execute_with_retry(
-            f"ack_message_{stream_name}_{message_id}", _ack_message
-        )
+        return await self._execute_with_retry(f"ack_message_{stream_name}_{message_id}", _ack_message)
 
     async def get_stream_info(self, stream_name: str) -> Dict[str, Any]:
         """Get stream information"""
@@ -426,9 +390,7 @@ class RedisStreamClient:
             return await client.xinfo_stream(stream_name)
 
         try:
-            return await self._execute_with_retry(
-                f"get_stream_info_{stream_name}", _get_info
-            )
+            return await self._execute_with_retry(f"get_stream_info_{stream_name}", _get_info)
         except ResponseError:
             # Stream doesn't exist
             return {}
@@ -440,9 +402,7 @@ class RedisStreamClient:
             return await client.xinfo_groups(stream_name)
 
         try:
-            return await self._execute_with_retry(
-                f"get_consumer_group_info_{stream_name}", _get_group_info
-            )
+            return await self._execute_with_retry(f"get_consumer_group_info_{stream_name}", _get_group_info)
         except ResponseError:
             # Stream or groups don't exist
             return []
@@ -470,9 +430,7 @@ class RedisStreamClient:
             messages = []
             for msg_id, fields in claimed_messages:
                 string_fields = {
-                    k.decode() if isinstance(k, bytes) else k: v.decode()
-                    if isinstance(v, bytes)
-                    else v
+                    k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v
                     for k, v in fields.items()
                 }
 
@@ -485,23 +443,15 @@ class RedisStreamClient:
 
             return messages
 
-        return await self._execute_with_retry(
-            f"claim_pending_{stream_config.name}", _claim_messages
-        )
+        return await self._execute_with_retry(f"claim_pending_{stream_config.name}", _claim_messages)
 
-    async def delete_consumer(
-        self, stream_name: str, consumer_group: str, consumer_name: str
-    ):
+    async def delete_consumer(self, stream_name: str, consumer_group: str, consumer_name: str):
         """Delete a consumer from consumer group"""
 
         async def _delete_consumer(client: redis.Redis):
-            return await client.xgroup_delconsumer(
-                stream_name, consumer_group, consumer_name
-            )
+            return await client.xgroup_delconsumer(stream_name, consumer_group, consumer_name)
 
-        return await self._execute_with_retry(
-            f"delete_consumer_{stream_name}_{consumer_name}", _delete_consumer
-        )
+        return await self._execute_with_retry(f"delete_consumer_{stream_name}_{consumer_name}", _delete_consumer)
 
     async def get_metrics(self) -> Dict[str, Any]:
         """Get client metrics"""
@@ -510,9 +460,7 @@ class RedisStreamClient:
             "successful_operations": self.successful_operations,
             "failed_operations": self.failed_operations,
             "retry_attempts": self.retry_attempts,
-            "success_rate": (
-                self.successful_operations / max(1, self.connection_attempts) * 100
-            ),
+            "success_rate": (self.successful_operations / max(1, self.connection_attempts) * 100),
             "initialized": self._initialized,
             "pool_settings": self.pool_settings,
         }

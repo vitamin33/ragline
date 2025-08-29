@@ -95,9 +95,7 @@ async def list_products(
         ]
 
         # Cache the result
-        await cache.set(
-            tenant_id, "products", cache_key, product_data, ttl=60
-        )  # 1 minute TTL for lists
+        await cache.set(tenant_id, "products", cache_key, product_data, ttl=60)  # 1 minute TTL for lists
 
         logger.info(
             "Product list fetched from database",
@@ -182,9 +180,7 @@ async def get_product(
     async def fetch_product():
         try:
             result = await db.execute(
-                select(Product).where(
-                    and_(Product.id == product_id, Product.tenant_id == tenant_id)
-                )
+                select(Product).where(and_(Product.id == product_id, Product.tenant_id == tenant_id))
             )
             product = result.scalar_one_or_none()
 
@@ -222,9 +218,7 @@ async def get_product(
         )
 
         if product_data is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
         logger.info("Product retrieved", tenant_id=tenant_id, product_id=product_id)
         return ProductResponse(**product_data)
@@ -257,17 +251,11 @@ async def update_product(
 
     try:
         # Fetch existing product
-        result = await db.execute(
-            select(Product).where(
-                and_(Product.id == product_id, Product.tenant_id == tenant_id)
-            )
-        )
+        result = await db.execute(select(Product).where(and_(Product.id == product_id, Product.tenant_id == tenant_id)))
         db_product = result.scalar_one_or_none()
 
         if not db_product:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Product not found"
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
 
         # Update fields that were provided
         update_data = product.model_dump(exclude_unset=True)

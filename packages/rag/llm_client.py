@@ -23,12 +23,8 @@ class LLMConfig(BaseModel):
 
     # API Configuration
     api_key: str = Field(default_factory=lambda: os.getenv("OPENAI_API_KEY", ""))
-    base_url: Optional[str] = Field(
-        default_factory=lambda: os.getenv("OPENAI_API_BASE")
-    )
-    organization: Optional[str] = Field(
-        default_factory=lambda: os.getenv("OPENAI_ORG_ID")
-    )
+    base_url: Optional[str] = Field(default_factory=lambda: os.getenv("OPENAI_API_BASE"))
+    organization: Optional[str] = Field(default_factory=lambda: os.getenv("OPENAI_ORG_ID"))
 
     # Model Configuration
     model: str = Field(default="gpt-4o-mini")
@@ -47,9 +43,7 @@ class LLMConfig(BaseModel):
     def __post_init__(self):
         """Validate configuration after initialization."""
         if not self.api_key and not self.base_url:
-            logger.warning(
-                "No OpenAI API key or base URL provided. Set OPENAI_API_KEY or OPENAI_API_BASE."
-            )
+            logger.warning("No OpenAI API key or base URL provided. Set OPENAI_API_KEY or OPENAI_API_BASE.")
 
 
 class ChatMessage(BaseModel):
@@ -59,9 +53,7 @@ class ChatMessage(BaseModel):
     content: Optional[str] = Field(None, description="Message content")
     name: Optional[str] = Field(None, description="Name of the message sender")
     tool_calls: Optional[List[Dict[str, Any]]] = Field(None, description="Tool calls")
-    tool_call_id: Optional[str] = Field(
-        None, description="Tool call ID for tool responses"
-    )
+    tool_call_id: Optional[str] = Field(None, description="Tool call ID for tool responses")
 
 
 class LLMResponse(BaseModel):
@@ -70,9 +62,7 @@ class LLMResponse(BaseModel):
     content: str = Field(default="")
     tool_calls: Optional[List[Dict[str, Any]]] = Field(None)
     finish_reason: Optional[str] = Field(None)
-    usage: Optional[Dict[str, Any]] = Field(
-        None
-    )  # Changed from int to Any to handle complex usage objects
+    usage: Optional[Dict[str, Any]] = Field(None)  # Changed from int to Any to handle complex usage objects
     model: Optional[str] = Field(None)
 
 
@@ -133,12 +123,8 @@ class LLMClient:
             except openai.RateLimitError as e:
                 last_exception = e
                 if attempt < self.config.max_retries:
-                    wait_time = self.config.retry_delay * (
-                        self.config.retry_backoff**attempt
-                    )
-                    logger.warning(
-                        f"Rate limit hit, retrying in {wait_time:.1f}s (attempt {attempt + 1})"
-                    )
+                    wait_time = self.config.retry_delay * (self.config.retry_backoff**attempt)
+                    logger.warning(f"Rate limit hit, retrying in {wait_time:.1f}s (attempt {attempt + 1})")
                     await asyncio.sleep(wait_time)
                     continue
                 raise
@@ -146,12 +132,8 @@ class LLMClient:
             except (openai.APITimeoutError, openai.APIConnectionError) as e:
                 last_exception = e
                 if attempt < self.config.max_retries:
-                    wait_time = self.config.retry_delay * (
-                        self.config.retry_backoff**attempt
-                    )
-                    logger.warning(
-                        f"API error, retrying in {wait_time:.1f}s (attempt {attempt + 1}): {e}"
-                    )
+                    wait_time = self.config.retry_delay * (self.config.retry_backoff**attempt)
+                    logger.warning(f"API error, retrying in {wait_time:.1f}s (attempt {attempt + 1}): {e}")
                     await asyncio.sleep(wait_time)
                     continue
                 raise
@@ -164,12 +146,8 @@ class LLMClient:
 
                 last_exception = e
                 if attempt < self.config.max_retries:
-                    wait_time = self.config.retry_delay * (
-                        self.config.retry_backoff**attempt
-                    )
-                    logger.warning(
-                        f"Server error, retrying in {wait_time:.1f}s (attempt {attempt + 1}): {e}"
-                    )
+                    wait_time = self.config.retry_delay * (self.config.retry_backoff**attempt)
+                    logger.warning(f"Server error, retrying in {wait_time:.1f}s (attempt {attempt + 1}): {e}")
                     await asyncio.sleep(wait_time)
                     continue
                 raise
@@ -264,9 +242,7 @@ class LLMClient:
                 # Fallback to basic usage info if validation fails
                 usage_data = {
                     "prompt_tokens": getattr(response.usage, "prompt_tokens", 0),
-                    "completion_tokens": getattr(
-                        response.usage, "completion_tokens", 0
-                    ),
+                    "completion_tokens": getattr(response.usage, "completion_tokens", 0),
                     "total_tokens": getattr(response.usage, "total_tokens", 0),
                 }
 
@@ -301,9 +277,7 @@ class LLMClient:
             model=response.model,
         )
 
-    async def _stream_completion(
-        self, params: Dict[str, Any]
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+    async def _stream_completion(self, params: Dict[str, Any]) -> AsyncGenerator[Dict[str, Any], None]:
         """Stream chat completion with timeout handling."""
 
         async def _make_stream():
@@ -349,12 +323,8 @@ class LLMClient:
                                 "id": getattr(tc, "id", None),
                                 "type": getattr(tc, "type", "function"),
                                 "function": {
-                                    "name": getattr(tc.function, "name", None)
-                                    if tc.function
-                                    else None,
-                                    "arguments": getattr(tc.function, "arguments", None)
-                                    if tc.function
-                                    else None,
+                                    "name": getattr(tc.function, "name", None) if tc.function else None,
+                                    "arguments": getattr(tc.function, "arguments", None) if tc.function else None,
                                 },
                             }
                             tool_calls_data.append(tool_call_dict)
@@ -384,9 +354,7 @@ class LLMClient:
         """Perform health check on LLM service."""
         try:
             # Simple completion to test API connectivity
-            response = await self.chat_completion(
-                messages=[ChatMessage(role="user", content="Hello")], stream=False
-            )
+            response = await self.chat_completion(messages=[ChatMessage(role="user", content="Hello")], stream=False)
 
             return {
                 "status": "healthy",
@@ -433,9 +401,7 @@ async def chat(messages: List[ChatMessage], **kwargs) -> LLMResponse:
     return await client.chat_completion(messages, stream=False, **kwargs)
 
 
-async def stream_chat(
-    messages: List[ChatMessage], **kwargs
-) -> AsyncGenerator[Dict[str, Any], None]:
+async def stream_chat(messages: List[ChatMessage], **kwargs) -> AsyncGenerator[Dict[str, Any], None]:
     """Convenience function for streaming chat."""
     client = get_llm_client()
     async for chunk in await client.chat_completion(messages, stream=True, **kwargs):

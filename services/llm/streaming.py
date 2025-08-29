@@ -58,10 +58,7 @@ class StreamBuffer:
         # Flush conditions
         buffer_full = self._buffer_bytes >= self.buffer_size
         interval_elapsed = (current_time - self._last_flush) >= self.flush_interval
-        max_time_exceeded = (
-            self._first_item_time
-            and (current_time - self._first_item_time) >= self.max_hold_time
-        )
+        max_time_exceeded = self._first_item_time and (current_time - self._first_item_time) >= self.max_hold_time
 
         return buffer_full or interval_elapsed or max_time_exceeded
 
@@ -146,9 +143,7 @@ class ConversationMemory:
 
         token_count = self.count_tokens(content)
 
-        message = ConversationMessage(
-            role=role, content=content, token_count=token_count, metadata=metadata or {}
-        )
+        message = ConversationMessage(role=role, content=content, token_count=token_count, metadata=metadata or {})
 
         self._conversations[session_id].append(message)
 
@@ -202,10 +197,7 @@ class ConversationMemory:
         # Reverse to get chronological order
         context_messages.reverse()
 
-        logger.info(
-            f"Retrieved {len(context_messages)} messages "
-            f"({total_tokens} tokens) for session {session_id}"
-        )
+        logger.info(f"Retrieved {len(context_messages)} messages ({total_tokens} tokens) for session {session_id}")
 
         return context_messages
 
@@ -217,9 +209,7 @@ class ConversationMemory:
 
         messages = list(self._conversations[session_id])
 
-        total_tokens = sum(
-            msg.token_count or self.count_tokens(msg.content) for msg in messages
-        )
+        total_tokens = sum(msg.token_count or self.count_tokens(msg.content) for msg in messages)
 
         user_messages = [msg for msg in messages if msg.role == "user"]
         assistant_messages = [msg for msg in messages if msg.role == "assistant"]
@@ -248,9 +238,7 @@ class ConversationMemory:
             del self._conversations[session_id]
 
         if sessions_to_remove:
-            logger.info(
-                f"Cleaned up {len(sessions_to_remove)} old conversation sessions"
-            )
+            logger.info(f"Cleaned up {len(sessions_to_remove)} old conversation sessions")
 
 
 class StreamingManager:
@@ -289,8 +277,7 @@ class StreamingManager:
             session_id = stream_info["session_id"]
 
             logger.info(
-                f"Unregistered stream {stream_id} "
-                f"(session: {session_id}, messages: {stream_info['message_count']})"
+                f"Unregistered stream {stream_id} (session: {session_id}, messages: {stream_info['message_count']})"
             )
 
             del self.active_streams[stream_id]
@@ -353,10 +340,7 @@ class StreamingManager:
                         yield buffered_data
 
                 # Yield immediately for certain event types (errors, completion)
-                if any(
-                    event_type in data_chunk
-                    for event_type in ['"type": "error"', '"type": "done"']
-                ):
+                if any(event_type in data_chunk for event_type in ['"type": "error"', '"type": "done"']):
                     # Flush remaining buffer
                     remaining_data = buffer.flush()
                     if remaining_data:
@@ -441,10 +425,7 @@ class BufferedEventSourceResponse:
             {
                 "type": "http.response.start",
                 "status": 200,
-                "headers": [
-                    (key.encode(), value.encode())
-                    for key, value in self.headers.items()
-                ],
+                "headers": [(key.encode(), value.encode()) for key, value in self.headers.items()],
             }
         )
 
@@ -461,18 +442,14 @@ class BufferedEventSourceResponse:
 
             async for chunk in buffered_generator:
                 if chunk:
-                    await send(
-                        {"type": "http.response.body", "body": chunk.encode("utf-8")}
-                    )
+                    await send({"type": "http.response.body", "body": chunk.encode("utf-8")})
 
         except Exception as e:
             logger.error(f"Streaming response error: {e}")
 
             # Send error and close
             error_chunk = f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
-            await send(
-                {"type": "http.response.body", "body": error_chunk.encode("utf-8")}
-            )
+            await send({"type": "http.response.body", "body": error_chunk.encode("utf-8")})
 
         finally:
             # End response
@@ -540,9 +517,7 @@ class TokenLimitManager:
         other_msgs = [msg for msg in messages if msg.get("role") != "system"]
 
         # Calculate system message tokens
-        system_tokens = sum(
-            self.count_tokens(msg.get("content", "")) for msg in system_msgs
-        )
+        system_tokens = sum(self.count_tokens(msg.get("content", "")) for msg in system_msgs)
 
         # Remaining tokens for conversation
         available_tokens = target - system_tokens
@@ -571,9 +546,7 @@ class TokenLimitManager:
 
         return final_messages
 
-    def create_response_limiter(
-        self, max_tokens: Optional[int] = None
-    ) -> Dict[str, Any]:
+    def create_response_limiter(self, max_tokens: Optional[int] = None) -> Dict[str, Any]:
         """Create configuration for limiting response tokens."""
 
         limit = max_tokens or self.max_output_tokens

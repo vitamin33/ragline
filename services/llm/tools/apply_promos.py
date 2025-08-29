@@ -132,9 +132,7 @@ class ApplyPromosTool(BaseTool):
 
         # Check if promo is active
         if not promo["active"]:
-            raise ToolError(
-                f"Promo code '{promo_code}' has expired or is no longer active"
-            )
+            raise ToolError(f"Promo code '{promo_code}' has expired or is no longer active")
 
         # Check minimum order requirement
         if order_total < promo["min_order"]:
@@ -146,9 +144,7 @@ class ApplyPromosTool(BaseTool):
         discount_amount = 0.0
 
         if promo["type"] == "percentage":
-            discount_amount = min(
-                order_total * (promo["value"] / 100), promo["max_discount"]
-            )
+            discount_amount = min(order_total * (promo["value"] / 100), promo["max_discount"])
         elif promo["type"] == "fixed":
             discount_amount = min(promo["value"], order_total)
         elif promo["type"] == "shipping":
@@ -171,9 +167,7 @@ class ApplyPromosTool(BaseTool):
                 "original_total": round(order_total, 2),
                 "discount_amount": round(discount_amount, 2),
                 "final_total": round(discounted_total, 2),
-                "savings_percentage": round((discount_amount / order_total) * 100, 1)
-                if order_total > 0
-                else 0,
+                "savings_percentage": round((discount_amount / order_total) * 100, 1) if order_total > 0 else 0,
             },
             "message": f"Successfully applied promo code '{promo_code}' for ${discount_amount:.2f} off!",
             "context": {

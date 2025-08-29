@@ -93,9 +93,7 @@ class ConnectionManager:
 
         # Check tenant connection limit
         if client.tenant_id:
-            tenant_connections = self._connections_by_tenant.get(
-                client.tenant_id, set()
-            )
+            tenant_connections = self._connections_by_tenant.get(client.tenant_id, set())
             if len(tenant_connections) >= self.max_connections_per_tenant:
                 logger.warning(f"Tenant {client.tenant_id} connection limit exceeded")
                 return False
@@ -105,14 +103,10 @@ class ConnectionManager:
 
         # Update indexes
         if client.user_id:
-            self._connections_by_user.setdefault(client.user_id, set()).add(
-                client.client_id
-            )
+            self._connections_by_user.setdefault(client.user_id, set()).add(client.client_id)
 
         if client.tenant_id:
-            self._connections_by_tenant.setdefault(client.tenant_id, set()).add(
-                client.client_id
-            )
+            self._connections_by_tenant.setdefault(client.tenant_id, set()).add(client.client_id)
 
         self.total_connections += 1
         logger.info(f"Added connection {client.client_id} ({client.connection_type})")
@@ -138,9 +132,7 @@ class ConnectionManager:
             del self._connections[client_id]
             logger.info(f"Removed connection {client_id}")
 
-    def get_connections_for_event(
-        self, event_data: Dict[str, Any]
-    ) -> List[ConnectedClient]:
+    def get_connections_for_event(self, event_data: Dict[str, Any]) -> List[ConnectedClient]:
         """Get connections that should receive this event"""
         relevant_connections = []
 
@@ -159,9 +151,7 @@ class ConnectionManager:
 
             # Check subscription filtering
             if client.subscriptions:
-                subscription_match = (
-                    event_type in client.subscriptions or "all" in client.subscriptions
-                )
+                subscription_match = event_type in client.subscriptions or "all" in client.subscriptions
 
                 if subscription_match:
                     # Additional user filtering if user_id specified
@@ -208,25 +198,15 @@ class ConnectionManager:
             "healthy_connections": healthy_connections,
             "unhealthy_connections": len(self._connections) - healthy_connections,
             "connections_by_type": {
-                "sse": sum(
-                    1 for c in self._connections.values() if c.connection_type == "sse"
-                ),
-                "websocket": sum(
-                    1
-                    for c in self._connections.values()
-                    if c.connection_type == "websocket"
-                ),
+                "sse": sum(1 for c in self._connections.values() if c.connection_type == "sse"),
+                "websocket": sum(1 for c in self._connections.values() if c.connection_type == "websocket"),
             },
             "users_connected": len(self._connections_by_user),
             "tenants_connected": len(self._connections_by_tenant),
             "total_messages_sent": self.total_messages_sent,
             "total_send_failures": self.total_send_failures,
             "success_rate": (
-                (
-                    self.total_messages_sent
-                    / max(1, self.total_messages_sent + self.total_send_failures)
-                )
-                * 100
+                (self.total_messages_sent / max(1, self.total_messages_sent + self.total_send_failures)) * 100
             ),
         }
 
@@ -346,9 +326,7 @@ class StreamNotifier:
                     await self._process_message(message, stream_name)
 
                     # Acknowledge message
-                    await self.redis_client.acknowledge_message(
-                        stream_name, config["consumer_group"], message["id"]
-                    )
+                    await self.redis_client.acknowledge_message(stream_name, config["consumer_group"], message["id"])
 
         except Exception as e:
             logger.error(f"Error processing stream {stream_name}: {e}")
@@ -384,9 +362,7 @@ class StreamNotifier:
                 # Fan out to all relevant connections
                 await self._fanout_to_connections(event_data, connections)
 
-                logger.debug(
-                    f"Fanned out event {event_data['event_id']} to {len(connections)} clients"
-                )
+                logger.debug(f"Fanned out event {event_data['event_id']} to {len(connections)} clients")
                 self.processed_events += 1
             else:
                 logger.debug(f"No connections found for event {event_data['event_id']}")
@@ -395,9 +371,7 @@ class StreamNotifier:
             logger.error(f"Error processing message {message['id']}: {e}")
             self.failed_events += 1
 
-    async def _fanout_to_connections(
-        self, event_data: Dict[str, Any], connections: List[ConnectedClient]
-    ):
+    async def _fanout_to_connections(self, event_data: Dict[str, Any], connections: List[ConnectedClient]):
         """Fan out event to multiple connections with backpressure handling"""
         # Prepare notification message
         notification = {
@@ -410,9 +384,7 @@ class StreamNotifier:
         # Send to all connections concurrently
         send_tasks = []
         for connection in connections:
-            task = asyncio.create_task(
-                self._send_to_connection(connection, notification)
-            )
+            task = asyncio.create_task(self._send_to_connection(connection, notification))
             send_tasks.append(task)
 
         # Wait for all sends to complete
@@ -427,13 +399,9 @@ class StreamNotifier:
             self.connection_manager.total_send_failures += failures
 
             if failures > 0:
-                logger.warning(
-                    f"Failed to send to {failures}/{len(connections)} connections"
-                )
+                logger.warning(f"Failed to send to {failures}/{len(connections)} connections")
 
-    async def _send_to_connection(
-        self, connection: ConnectedClient, notification: Dict[str, Any]
-    ) -> bool:
+    async def _send_to_connection(self, connection: ConnectedClient, notification: Dict[str, Any]) -> bool:
         """
         Send notification to a specific connection.
         This is a placeholder - actual implementation depends on SSE/WS framework.
@@ -451,17 +419,13 @@ class StreamNotifier:
 
             # Simulate backpressure check
             if message_size > 10000:  # 10KB limit
-                logger.warning(
-                    f"Large message ({message_size} bytes) for client {connection.client_id}"
-                )
+                logger.warning(f"Large message ({message_size} bytes) for client {connection.client_id}")
                 return False
 
             # Update connection health
             connection.update_ping()
 
-            logger.debug(
-                f"Sent {message_size} bytes to {connection.client_id} ({connection.connection_type})"
-            )
+            logger.debug(f"Sent {message_size} bytes to {connection.client_id} ({connection.connection_type})")
             return True
 
         except Exception as e:
@@ -505,9 +469,7 @@ class StreamNotifier:
                 "streams_monitored": len(self.stream_configs),
             },
             "connections": connection_stats,
-            "streams": {
-                stream.value: config for stream, config in self.stream_configs.items()
-            },
+            "streams": {stream.value: config for stream, config in self.stream_configs.items()},
         }
 
 
@@ -681,9 +643,7 @@ def get_notifier_stats(self) -> Dict[str, Any]:
     base=NotificationTask,
     name="services.worker.tasks.notifications.send_test_notification",
 )
-def send_test_notification(
-    self, user_id: Optional[str] = None, tenant_id: Optional[str] = None
-) -> Dict[str, Any]:
+def send_test_notification(self, user_id: Optional[str] = None, tenant_id: Optional[str] = None) -> Dict[str, Any]:
     """Send a test notification to verify the system is working"""
 
     async def _send_test():

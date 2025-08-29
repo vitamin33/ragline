@@ -68,9 +68,7 @@ async def test_complete_agent_b_functionality():
         ping_result = ping.delay().get()
         health_result = health_check.delay().get()
 
-        celery_working = ping_result.get("status") == "pong" and health_result.get(
-            "status"
-        ) in ["healthy", "degraded"]
+        celery_working = ping_result.get("status") == "pong" and health_result.get("status") in ["healthy", "degraded"]
 
         print(f"   ✅ Celery tasks working: {celery_working}")
         print(f"      Ping: {ping_result.get('status')}")
@@ -187,9 +185,7 @@ async def test_complete_agent_b_functionality():
             "user_id": "prod_user",
         }
 
-        recipients = notifier.connection_manager.get_connections_for_event(
-            test_event_data
-        )
+        recipients = notifier.connection_manager.get_connections_for_event(test_event_data)
 
         notifications_working = (
             connection_added and len(recipients) >= 0  # Should find connections
@@ -233,9 +229,7 @@ async def test_complete_agent_b_functionality():
             aggregate_type="order",
         )
 
-        flow_stream_event = StreamEvent(
-            metadata=flow_metadata, payload=flow_event.to_dict()
-        )
+        flow_stream_event = StreamEvent(metadata=flow_metadata, payload=flow_event.to_dict())
         flow_message_id = await producer.publish_event(flow_stream_event)
 
         # Step 4: Verify notification routing
@@ -245,20 +239,14 @@ async def test_complete_agent_b_functionality():
             "order_id": str(flow_event.order_id),
         }
 
-        flow_recipients = notifier.connection_manager.get_connections_for_event(
-            flow_event_data
-        )
+        flow_recipients = notifier.connection_manager.get_connections_for_event(flow_event_data)
 
-        integration_flow_working = (
-            schema_valid and bool(flow_message_id) and len(flow_recipients) >= 0
-        )
+        integration_flow_working = schema_valid and bool(flow_message_id) and len(flow_recipients) >= 0
 
         print(f"   ✅ Integration flow working: {integration_flow_working}")
         print(f"      Schema valid: {schema_valid}")
         print(f"      Stream published: {bool(flow_message_id)}")
-        print(
-            f"      Notification routing: {len(flow_recipients)} potential recipients"
-        )
+        print(f"      Notification routing: {len(flow_recipients)} potential recipients")
 
         test_results.append(("Integration Flow", integration_flow_working))
 

@@ -34,9 +34,7 @@ class ToolManager:
         """Register all available tools."""
         for tool_name, tool_class in TOOLS.items():
             try:
-                tool_instance = tool_class(
-                    tenant_id=self.tenant_id, user_id=self.user_id
-                )
+                tool_instance = tool_class(tenant_id=self.tenant_id, user_id=self.user_id)
                 self.tools[tool_name] = tool_instance
                 logger.info(f"Registered tool: {tool_name}")
             except Exception as e:
@@ -98,18 +96,14 @@ class ToolManager:
         # Get tool instance
         tool = self.get_tool(tool_name)
         if not tool:
-            return ToolResult(
-                success=False, error=f"Tool '{tool_name}' not found", latency_ms=0
-            )
+            return ToolResult(success=False, error=f"Tool '{tool_name}' not found", latency_ms=0)
 
         # Parse arguments if they're a JSON string
         if isinstance(arguments, str):
             try:
                 parsed_args = json.loads(arguments)
             except json.JSONDecodeError as e:
-                return ToolResult(
-                    success=False, error=f"Invalid JSON arguments: {e}", latency_ms=0
-                )
+                return ToolResult(success=False, error=f"Invalid JSON arguments: {e}", latency_ms=0)
         else:
             parsed_args = arguments
 
@@ -128,23 +122,15 @@ class ToolManager:
                     }
                 )
 
-            logger.info(
-                f"Tool executed: {tool_name}, "
-                f"success: {result.success}, "
-                f"latency: {result.latency_ms:.1f}ms"
-            )
+            logger.info(f"Tool executed: {tool_name}, success: {result.success}, latency: {result.latency_ms:.1f}ms")
 
             return result
 
         except Exception as e:
             logger.error(f"Tool execution error for {tool_name}: {e}")
-            return ToolResult(
-                success=False, error=f"Tool execution failed: {e}", latency_ms=0
-            )
+            return ToolResult(success=False, error=f"Tool execution failed: {e}", latency_ms=0)
 
-    async def execute_tool_calls(
-        self, tool_calls: List[Dict[str, Any]]
-    ) -> List[Dict[str, Any]]:
+    async def execute_tool_calls(self, tool_calls: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Execute multiple tool calls from OpenAI response.
 
@@ -232,17 +218,11 @@ class ToolManager:
 _tool_manager: Optional[ToolManager] = None
 
 
-def get_tool_manager(
-    tenant_id: Optional[str] = None, user_id: Optional[str] = None
-) -> ToolManager:
+def get_tool_manager(tenant_id: Optional[str] = None, user_id: Optional[str] = None) -> ToolManager:
     """Get or create global tool manager instance."""
     global _tool_manager
 
-    if (
-        _tool_manager is None
-        or _tool_manager.tenant_id != tenant_id
-        or _tool_manager.user_id != user_id
-    ):
+    if _tool_manager is None or _tool_manager.tenant_id != tenant_id or _tool_manager.user_id != user_id:
         _tool_manager = ToolManager(tenant_id=tenant_id, user_id=user_id)
 
     return _tool_manager

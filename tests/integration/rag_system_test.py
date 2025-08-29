@@ -77,9 +77,7 @@ async def test_rag_system():
         print("\n2. Testing Embeddings Generation")
         try:
             # Create embedding manager (without database for testing)
-            config = EmbeddingConfig(
-                provider="openai", api_key=api_key, model_name="text-embedding-3-small"
-            )
+            config = EmbeddingConfig(provider="openai", api_key=api_key, model_name="text-embedding-3-small")
 
             # Mock embedding manager without database
             from rag.embeddings import OpenAIEmbeddingProvider
@@ -116,9 +114,7 @@ async def test_rag_system():
 
             # Test data ingestion
             print("   📥 Ingesting sample data...")
-            ingestion_results = await ingest_sample_data(
-                embedding_manager, tenant_id="test_restaurant"
-            )
+            ingestion_results = await ingest_sample_data(embedding_manager, tenant_id="test_restaurant")
 
             print(f"   ✅ Ingested {ingestion_results['total']} documents")
             print(f"      - Menu items: {len(ingestion_results['menu_items'])}")
@@ -209,17 +205,13 @@ async def test_rag_system():
     print("\n📊 Test Summary:")
     print(f"   - Document chunking: {'✅' if RAG_AVAILABLE else '❌'}")
     print(f"   - Embedding generation: {'✅' if api_key else '⚠️ (skipped)'}")
-    print(
-        f"   - Full RAG system: {'✅' if api_key and database_url else '⚠️ (skipped)'}"
-    )
+    print(f"   - Full RAG system: {'✅' if api_key and database_url else '⚠️ (skipped)'}")
     print(f"   - Configuration: {'✅' if RAG_AVAILABLE else '❌'}")
 
 
 if __name__ == "__main__":
     if not RAG_AVAILABLE:
-        print(
-            "⚠️  RAG system not available. Make sure you're running from the correct directory."
-        )
+        print("⚠️  RAG system not available. Make sure you're running from the correct directory.")
         print("   Required dependencies: tiktoken, numpy, pydantic")
         print("   Optional: openai, asyncpg (for full testing)")
         sys.exit(1)

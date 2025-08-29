@@ -31,9 +31,7 @@ class HealthCheckTask(Task):
         logger.info(f"Health check completed successfully: {retval}")
 
 
-@app.task(
-    bind=True, base=HealthCheckTask, name="services.worker.tasks.health.health_check"
-)
+@app.task(bind=True, base=HealthCheckTask, name="services.worker.tasks.health.health_check")
 def health_check(self) -> Dict[str, Any]:
     """
     Comprehensive health check for the worker service.
@@ -77,24 +75,14 @@ def health_check(self) -> Dict[str, Any]:
         health_data["metrics"] = {
             "check_duration_ms": round((time.time() - start_time) * 1000, 2),
             "worker_pid": self.request.id if hasattr(self.request, "id") else None,
-            "task_retries": self.request.retries
-            if hasattr(self.request, "retries")
-            else 0,
+            "task_retries": self.request.retries if hasattr(self.request, "retries") else 0,
         }
 
         # Determine overall health status
-        failed_checks = [
-            name
-            for name, check in health_data["checks"].items()
-            if check.get("status") != "healthy"
-        ]
+        failed_checks = [name for name, check in health_data["checks"].items() if check.get("status") != "healthy"]
 
         if failed_checks:
-            health_data["status"] = (
-                "degraded"
-                if len(failed_checks) < len(health_data["checks"])
-                else "unhealthy"
-            )
+            health_data["status"] = "degraded" if len(failed_checks) < len(health_data["checks"]) else "unhealthy"
             logger.warning(f"Health check found issues in: {', '.join(failed_checks)}")
         else:
             logger.info("Health check passed all checks")
@@ -107,9 +95,7 @@ def health_check(self) -> Dict[str, Any]:
             "timestamp": datetime.utcnow().isoformat(),
             "status": "unhealthy",
             "error": str(e),
-            "metrics": {
-                "check_duration_ms": round((time.time() - start_time) * 1000, 2)
-            },
+            "metrics": {"check_duration_ms": round((time.time() - start_time) * 1000, 2)},
         }
 
 
@@ -234,9 +220,7 @@ def ping(self) -> Dict[str, Any]:
         "timestamp": datetime.utcnow().isoformat(),
         "status": "pong",
         "worker_id": self.request.id if hasattr(self.request, "id") else None,
-        "hostname": self.request.hostname
-        if hasattr(self.request, "hostname")
-        else None,
+        "hostname": self.request.hostname if hasattr(self.request, "hostname") else None,
     }
 
 

@@ -38,9 +38,7 @@ class SimpleRedisClient:
 
         try:
             # Simple client creation
-            self.client = redis.from_url(
-                self.config.redis_url, retry_on_timeout=True, health_check_interval=30
-            )
+            self.client = redis.from_url(self.config.redis_url, retry_on_timeout=True, health_check_interval=30)
 
             # Test connection
             await self.client.ping()
@@ -78,9 +76,7 @@ class SimpleRedisClient:
         try:
             self.operations_count += 1
 
-            result = await self.client.xadd(
-                stream_name, fields, id=message_id, maxlen=max_len
-            )
+            result = await self.client.xadd(stream_name, fields, id=message_id, maxlen=max_len)
 
             logger.debug(f"Added message {result} to stream {stream_name}")
             return result
@@ -107,9 +103,7 @@ class SimpleRedisClient:
 
             # Ensure consumer group exists
             try:
-                await self.client.xgroup_create(
-                    stream_name, consumer_group, id="0", mkstream=True
-                )
+                await self.client.xgroup_create(stream_name, consumer_group, id="0", mkstream=True)
             except ResponseError as e:
                 if "BUSYGROUP" not in str(e):
                     raise
@@ -128,21 +122,15 @@ class SimpleRedisClient:
                 for msg_id, fields in msgs:
                     # Convert bytes to strings
                     string_fields = {
-                        k.decode() if isinstance(k, bytes) else k: v.decode()
-                        if isinstance(v, bytes)
-                        else v
+                        k.decode() if isinstance(k, bytes) else k: v.decode() if isinstance(v, bytes) else v
                         for k, v in fields.items()
                     }
 
                     messages.append(
                         {
-                            "id": msg_id.decode()
-                            if isinstance(msg_id, bytes)
-                            else msg_id,
+                            "id": msg_id.decode() if isinstance(msg_id, bytes) else msg_id,
                             "fields": string_fields,
-                            "stream": stream.decode()
-                            if isinstance(stream, bytes)
-                            else stream,
+                            "stream": stream.decode() if isinstance(stream, bytes) else stream,
                         }
                     )
 
@@ -153,9 +141,7 @@ class SimpleRedisClient:
             logger.error(f"Failed to read from stream {stream_name}: {e}")
             raise
 
-    async def acknowledge_message(
-        self, stream_name: str, consumer_group: str, message_id: str
-    ):
+    async def acknowledge_message(self, stream_name: str, consumer_group: str, message_id: str):
         """Acknowledge message"""
         await self.ensure_initialized()
 
@@ -186,11 +172,7 @@ class SimpleRedisClient:
         return {
             "operations_count": self.operations_count,
             "errors_count": self.errors_count,
-            "success_rate": (
-                (self.operations_count - self.errors_count)
-                / max(1, self.operations_count)
-                * 100
-            ),
+            "success_rate": ((self.operations_count - self.errors_count) / max(1, self.operations_count) * 100),
             "initialized": self._initialized,
         }
 
