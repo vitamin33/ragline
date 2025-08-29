@@ -175,6 +175,15 @@ class DLQManager:
         self.failed_reprocess_count = 0
         self.expired_count = 0
 
+        # Prometheus metrics integration
+        try:
+            from .metrics import get_metrics
+
+            self.prometheus_metrics = get_metrics() if config.metrics_enabled else None
+        except ImportError:
+            self.prometheus_metrics = None
+            logger.warning("Prometheus metrics not available")
+
         logger.info(f"DLQ Manager initialized with {self.max_reprocess_attempts} max attempts")
 
     async def _get_redis(self) -> redis.Redis:
@@ -289,6 +298,11 @@ class DLQManager:
                     await self._remove_event_from_dlq(event)
 
                     self.reprocessed_count += 1
+
+                    # Record metrics
+                    if self.prometheus_metrics:
+                        self.prometheus_metrics.record_dlq_reprocess_attempt(event.aggregate_type, "success")
+
                     logger.info(f"Successfully reprocessed event {event.event_id}")
                     return True
 
@@ -309,6 +323,11 @@ class DLQManager:
             await self._update_event_in_dlq(event)
 
             self.failed_reprocess_count += 1
+
+            # Record metrics
+            if self.prometheus_metrics:
+                self.prometheus_metrics.record_dlq_reprocess_attempt(event.aggregate_type, "failed")
+
             logger.error(f"Failed to reprocess event {event.event_id}: {e}")
             return False
 

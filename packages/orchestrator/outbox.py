@@ -22,6 +22,7 @@ from packages.db.database import AsyncSessionLocal, engine
 from packages.db.models import Outbox
 from services.worker.config import WorkerConfig
 
+from .metrics import get_metrics
 from .stream_producer import StreamEvent, get_stream_producer
 
 logger = get_task_logger(__name__)
@@ -88,6 +89,9 @@ class OutboxConsumer:
         self.error_count = 0
         self.last_poll_time: Optional[float] = None
         self.processing_duration_ms = 0.0
+
+        # Prometheus metrics integration
+        self.prometheus_metrics = get_metrics() if config.metrics_enabled else None
 
     async def start(self):
         """Start the outbox consumer"""
@@ -211,6 +215,8 @@ class OutboxConsumer:
 
     async def _process_single_event(self, event: OutboxEvent):
         """Process a single outbox event by publishing to Redis Stream"""
+        start_time = time.time()
+
         try:
             # Validate event schema before publishing
             await self._validate_event_schema(event)
@@ -227,9 +233,25 @@ class OutboxConsumer:
             # Publish event using the stream producer
             message_id = await producer.publish_event(stream_event)
 
+            # Record successful processing metrics
+            duration = time.time() - start_time
+            if self.prometheus_metrics:
+                self.prometheus_metrics.record_outbox_event_processed(event.aggregate_type, duration)
+                self.prometheus_metrics.record_stream_event_published(
+                    f"ragline:stream:{event.aggregate_type}s", "success"
+                )
+
             logger.debug(f"Published event {event.id} with message ID {message_id}")
 
         except Exception as e:
+            # Record error metrics
+            duration = time.time() - start_time
+            if self.prometheus_metrics:
+                self.prometheus_metrics.record_error("outbox_consumer", "processing_error")
+                self.prometheus_metrics.record_stream_event_published(
+                    f"ragline:stream:{event.aggregate_type}s", "failed"
+                )
+
             raise OutboxProcessingError(f"Failed to publish to Redis Stream: {e}")
 
     async def _validate_event_schema(self, event: OutboxEvent):
