@@ -160,7 +160,7 @@ pip install asyncpg psycopg2-binary
 
 Just provide one of these:
 
-1. **Local/Docker Setup:** 
+1. **Local/Docker Setup:**
    ```bash
    export DATABASE_URL=postgresql://username:password@localhost:5432/ragline
    ```

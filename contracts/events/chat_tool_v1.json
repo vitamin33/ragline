@@ -93,7 +93,7 @@
       "description": "Tenant identifier for multi-tenancy"
     },
     "user_id": {
-      "type": "string", 
+      "type": "string",
       "description": "User identifier"
     },
     "session_id": {

@@ -1,11 +1,9 @@
-from logging.config import fileConfig
 import os
 import sys
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
 # Add the parent directory to the path to import our models
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -19,7 +17,9 @@ config = context.config
 
 # Set sqlalchemy.url from environment variable if not set in config
 if not config.get_main_option("sqlalchemy.url"):
-    db_url = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline")
+    db_url = os.getenv(
+        "DATABASE_URL", "postgresql+asyncpg://user:password@localhost/ragline"
+    )
     # Convert async URL to sync for Alembic
     if "postgresql+asyncpg" in db_url:
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql+psycopg2://")
@@ -78,9 +78,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

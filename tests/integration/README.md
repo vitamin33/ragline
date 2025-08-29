@@ -6,7 +6,7 @@ These tests validate the complete functionality of LLM service components in rea
 
 ### `tools_integration_test.py`
 Validates:
-- All 3 tools (retrieve_menu, apply_promos, confirm) 
+- All 3 tools (retrieve_menu, apply_promos, confirm)
 - Tool registration and schema generation
 - OpenAI function calling format
 - Error handling and validation
@@ -39,7 +39,7 @@ Tests:
 - ✅ Tool execution under 200ms
 - ✅ Error handling working correctly
 
-### RAG Test  
+### RAG Test
 - ✅ Document ingestion and chunking
 - ✅ Vector embeddings generated (1536 dimensions)
 - ✅ Similarity search under 30ms (with pgvector)

@@ -33,7 +33,7 @@ check_remote() {
 check_agent() {
     local agent=$1
     local dir="$MAIN_DIR/../ragline-$agent"
-    
+
     if [ ! -d "$dir" ]; then
         echo "[WARNING] Agent $agent worktree not found at $dir"
         echo "  Creating worktree..."
@@ -41,22 +41,22 @@ check_agent() {
         git worktree add "../ragline-$agent" "feat/$(get_agent_branch $agent)"
         return 0
     fi
-    
+
     echo "[Agent $agent] Status:"
     cd "$dir"
-    
+
     # Check if we have a remote
     if git remote | grep -q origin; then
         # Fetch latest without failing if no upstream
         git fetch origin 2>/dev/null || true
     fi
-    
+
     # Show brief status
     local changes=$(git status --porcelain | wc -l)
     local branch=$(git branch --show-current)
     echo "  Branch: $branch"
     echo "  Changes: $changes uncommitted files"
-    
+
     # Check if ahead/behind origin
     if git remote | grep -q origin && git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
         local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
@@ -83,23 +83,23 @@ morning_sync() {
     echo ""
     echo "MORNING SYNC (09:00)"
     echo "-------------------"
-    
+
     cd "$MAIN_DIR"
     check_remote
-    
+
     echo "Fetching latest changes from GitHub..."
     git fetch origin || echo "[WARNING] Could not fetch from origin"
     echo ""
-    
+
     # Check all agents
     for agent in a b c; do
         check_agent $agent
     done
-    
+
     # Validate contracts
     echo "Validating contracts..."
     cd "$MAIN_DIR"
-    
+
     if [ -f "contracts/openapi.yaml" ]; then
         echo -n "  OpenAPI: "
         if python3 -c "import yaml; yaml.safe_load(open('contracts/openapi.yaml'))" 2>/dev/null; then
@@ -110,7 +110,7 @@ morning_sync() {
     else
         echo "  OpenAPI: Not found (expected: contracts/openapi.yaml)"
     fi
-    
+
 for file in contracts/events/*.json; do
         if [ -f "$file" ]; then
             echo -n "  $(basename $file): "
@@ -121,20 +121,20 @@ for file in contracts/events/*.json; do
             fi
         fi
     done
-    
+
     if [ ! -f "contracts/openapi.yaml" ] && [ ! -f "contracts/events/order_v1.json" ]; then
         echo "  [INFO] No contracts found yet - create them in Day 1"
     fi
-    
+
     echo ""
     echo "[DONE] Ready to start day"
     echo ""
-    
+
     # Show today's tasks
     if [ -f "$MAIN_DIR/docs/DAILY_STATUS.md" ]; then
         echo "Today's Tasks:"
         echo "--------------"
-        
+
         # Detect current agent and show specific tasks using original directory
         case "$ORIGINAL_DIR_NAME" in
             ragline-a)
@@ -171,9 +171,9 @@ midday_check() {
     echo ""
     echo "MIDDAY INTEGRATION (14:00)"
     echo "-------------------------"
-    
+
     cd "$MAIN_DIR"
-    
+
     # Check for blockers
     if [ -f "$MAIN_DIR/docs/DAILY_STATUS.md" ]; then
         echo "Checking for blockers..."
@@ -184,7 +184,7 @@ midday_check() {
             echo "[OK] No blockers found"
         fi
     fi
-    
+
     # Run quick tests if available
     for agent in a b c; do
         local dir="$MAIN_DIR/../ragline-$agent"
@@ -199,7 +199,7 @@ midday_check() {
             fi
         fi
     done
-    
+
     echo ""
     echo "[DONE] Integration check complete"
 }
@@ -209,20 +209,20 @@ evening_prep() {
     echo ""
     echo "EVENING MERGE PREP (18:00)"
     echo "-------------------------"
-    
+
     cd "$MAIN_DIR"
     check_remote
-    
+
     echo "Checking merge readiness..."
     echo ""
-    
+
     # Check each worktree for uncommitted changes
     for agent in a b c; do
         local dir="$MAIN_DIR/../ragline-$agent"
         if [ -d "$dir" ]; then
             echo "Agent $agent:"
             cd "$dir"
-            
+
             local changes=$(git status --porcelain | wc -l)
             if [ "$changes" -gt 0 ]; then
                 echo "  [WARNING] $changes uncommitted changes"
@@ -232,7 +232,7 @@ evening_prep() {
             else
                 echo "  [OK] Clean working directory"
             fi
-            
+
             # Check if ahead of origin
             if git remote | grep -q origin && git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null 2>&1; then
                 local ahead=$(git rev-list --count @{u}..HEAD 2>/dev/null || echo "0")
@@ -243,7 +243,7 @@ evening_prep() {
             echo ""
         fi
     done
-    
+
     echo "[DONE] Ready for merge coordination"
     echo ""
     echo "Next steps:"
