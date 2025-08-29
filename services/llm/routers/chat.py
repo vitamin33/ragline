@@ -9,8 +9,8 @@ import sys
 import uuid
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
-from dotenv import load_dotenv
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -19,10 +19,12 @@ from pydantic import BaseModel, Field
 load_dotenv()
 
 # Add packages to path for LLM client
-sys.path.insert(0, '../../packages')
+sys.path.insert(0, "../../packages")
 
 try:
-    from rag.llm_client import get_llm_client, ChatMessage as LLMChatMessage
+    from rag.llm_client import ChatMessage as LLMChatMessage
+    from rag.llm_client import get_llm_client
+
     LLM_CLIENT_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import LLM client: {e}")
@@ -31,6 +33,7 @@ except ImportError as e:
 # Import tool system
 try:
     from tools.manager import get_tool_manager
+
     TOOLS_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import tools: {e}")
@@ -39,10 +42,11 @@ except ImportError as e:
 # Import enhanced streaming
 try:
     from streaming import (
-        get_streaming_manager, 
         BufferedEventSourceResponse,
-        TokenLimitManager
+        TokenLimitManager,
+        get_streaming_manager,
     )
+
     ENHANCED_STREAMING_AVAILABLE = True
 except ImportError as e:
     print(f"Warning: Could not import enhanced streaming: {e}")
@@ -58,6 +62,7 @@ except ImportError:
 
 class ChatMessage(BaseModel):
     """Chat message model."""
+
     role: str = Field(..., description="Message role: user, assistant, system")
     content: str = Field(..., description="Message content")
     timestamp: Optional[datetime] = None
@@ -65,6 +70,7 @@ class ChatMessage(BaseModel):
 
 class ChatRequest(BaseModel):
     """Chat request payload."""
+
     messages: List[ChatMessage] = Field(..., description="Conversation messages")
     stream: bool = Field(default=True, description="Enable streaming response")
     tools_enabled: bool = Field(default=True, description="Enable tool calling")
@@ -77,6 +83,7 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     """Chat response payload."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     choices: List[Dict[str, Any]] = Field(default_factory=list)
     usage: Optional[Dict[str, Any]] = None  # Changed from int to Any to handle complex usage objects
@@ -85,6 +92,7 @@ class ChatResponse(BaseModel):
 
 class ToolCall(BaseModel):
     """Tool call event model."""
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: str = Field(default="function")
     function: Dict[str, Any] = Field(..., description="Function details")
@@ -96,18 +104,18 @@ router = APIRouter()
 # Connection manager for WebSocket connections
 class ConnectionManager:
     """Manages WebSocket connections for real-time chat."""
-    
+
     def __init__(self):
         self.active_connections: Dict[str, WebSocket] = {}
-    
+
     async def connect(self, websocket: WebSocket, client_id: str):
         await websocket.accept()
         self.active_connections[client_id] = websocket
-    
+
     def disconnect(self, client_id: str):
         if client_id in self.active_connections:
             del self.active_connections[client_id]
-    
+
     async def send_personal_message(self, message: str, client_id: str):
         if client_id in self.active_connections:
             await self.active_connections[client_id].send_text(message)
@@ -117,63 +125,54 @@ manager = ConnectionManager()
 
 
 async def generate_chat_stream(
-    request: ChatRequest, 
+    request: ChatRequest,
     messages: Optional[List[ChatMessage]] = None,
-    token_manager: Optional[Any] = None
+    token_manager: Optional[Any] = None,
 ) -> AsyncGenerator[str, None]:
     """Generate streaming chat response with tool calling support."""
-    
+
     if not LLM_CLIENT_AVAILABLE:
         # Fallback to mock response if LLM client not available
         yield f"data: {json.dumps({'type': 'error', 'message': 'LLM client not available'})}\n\n"
         return
-    
+
     try:
         # Get LLM client
         client = get_llm_client()
-        
+
         # Use enhanced messages if provided, otherwise use request messages
         source_messages = messages or request.messages
-        
+
         # Convert messages to LLM format
-        llm_messages = [
-            LLMChatMessage(
-                role=msg.role,
-                content=msg.content
-            )
-            for msg in source_messages
-        ]
-        
+        llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in source_messages]
+
         # Define tools if enabled
         tools = None
         if request.tools_enabled and TOOLS_AVAILABLE:
             try:
-                tool_manager = get_tool_manager(
-                    tenant_id=request.tenant_id,
-                    user_id=request.user_id
-                )
+                tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
                 tools = tool_manager.get_openai_functions()
             except Exception as e:
                 print(f"Warning: Failed to load tools for streaming: {e}")
                 tools = None
-        
+
         # Configure response parameters with token limits
         response_config = {
             "messages": llm_messages,
             "tools": tools,
             "stream": True,
             "temperature": 0.7,
-            "max_tokens": request.max_tokens or 1000
+            "max_tokens": request.max_tokens or 1000,
         }
-        
+
         # Apply token manager limits if available
         if token_manager:
             limiter_config = token_manager.create_response_limiter(request.max_tokens)
             response_config.update(limiter_config)
-        
+
         # Stream response from LLM
         stream = await client.chat_completion(**response_config)
-        
+
         async for chunk in stream:
             # Handle different chunk types
             if chunk.get("type") == "content":
@@ -181,10 +180,10 @@ async def generate_chat_stream(
                 chunk_data = {
                     "type": "text",
                     "delta": chunk.get("delta", {}),
-                    "finish_reason": chunk.get("finish_reason")
+                    "finish_reason": chunk.get("finish_reason"),
                 }
                 yield f"data: {json.dumps(chunk_data)}\n\n"
-                
+
             elif chunk.get("type") == "tool_calls":
                 # Tool call chunk
                 tool_calls = chunk.get("delta", {}).get("tool_calls", [])
@@ -194,40 +193,37 @@ async def generate_chat_stream(
                         "tool_call": {
                             "id": tool_call.get("id"),
                             "type": "function",
-                            "function": tool_call.get("function", {})
-                        }
+                            "function": tool_call.get("function", {}),
+                        },
                     }
                     yield f"data: {json.dumps(tool_call_data)}\n\n"
-                    
+
                     # Simulate tool execution (mock for now)
                     await asyncio.sleep(0.1)
-                    
+
                     # Emit mock tool result
                     tool_result = {
                         "type": "tool_result",
                         "tool_call_id": tool_call.get("id"),
-                        "result": f"Mock result for {tool_call.get('function', {}).get('name', 'unknown')}"
+                        "result": f"Mock result for {tool_call.get('function', {}).get('name', 'unknown')}",
                     }
                     yield f"data: {json.dumps(tool_result)}\n\n"
-                    
+
             elif chunk.get("type") == "error":
                 # Error chunk
                 error_data = {
                     "type": "error",
-                    "error": chunk.get("error", "Unknown error")
+                    "error": chunk.get("error", "Unknown error"),
                 }
                 yield f"data: {json.dumps(error_data)}\n\n"
                 return
-        
+
         # Final done event
         yield f"data: {json.dumps({'type': 'done'})}\n\n"
-        
+
     except Exception as e:
         # Handle any errors during streaming
-        error_data = {
-            "type": "error",
-            "error": str(e)
-        }
+        error_data = {"type": "error", "error": str(e)}
         yield f"data: {json.dumps(error_data)}\n\n"
 
 
@@ -235,7 +231,7 @@ async def generate_chat_stream(
 async def chat_completions(request: ChatRequest):
     """
     Create chat completion with optional streaming.
-    
+
     Supports:
     - Tool calling (retrieve_menu, apply_promos, confirm)
     - RAG-enhanced responses
@@ -243,79 +239,72 @@ async def chat_completions(request: ChatRequest):
     - Conversation memory management
     - Enhanced streaming with buffering
     """
-    
+
     # Initialize token limit manager
     token_manager = None
     if ENHANCED_STREAMING_AVAILABLE:
         token_manager = TokenLimitManager()
-        
+
         # Validate input token count
         message_dicts = [{"role": msg.role, "content": msg.content} for msg in request.messages]
         is_valid, token_count = token_manager.validate_input_tokens(message_dicts)
-        
+
         if not is_valid:
             raise HTTPException(
                 status_code=413,
-                detail=f"Input too long: {token_count} tokens exceeds {token_manager.max_input_tokens} limit"
+                detail=f"Input too long: {token_count} tokens exceeds {token_manager.max_input_tokens} limit",
             )
-        
+
         logger.info(f"Input validated: {token_count} tokens")
-    
+
     # Add conversation memory if available
     enhanced_messages = request.messages
     if ENHANCED_STREAMING_AVAILABLE and request.use_conversation_memory and request.session_id:
         streaming_manager = get_streaming_manager()
-        
+
         # Get conversation context
-        conversation_context = streaming_manager.conversation_memory.get_conversation_context(
-            request.session_id
-        )
-        
+        conversation_context = streaming_manager.conversation_memory.get_conversation_context(request.session_id)
+
         if conversation_context:
             # Add conversation history before current messages
             history_messages = [
                 ChatMessage(
                     role=ctx_msg["role"],
                     content=ctx_msg["content"],
-                    timestamp=datetime.fromisoformat(ctx_msg["timestamp"])
+                    timestamp=datetime.fromisoformat(ctx_msg["timestamp"]),
                 )
                 for ctx_msg in conversation_context
             ]
-            
+
             # Combine with current messages (avoid duplicates)
             all_messages = history_messages + list(request.messages)
-            
+
             # Apply token limits
             if token_manager:
-                truncated_dicts = token_manager.truncate_context([
-                    {"role": msg.role, "content": msg.content} for msg in all_messages
-                ])
-                enhanced_messages = [
-                    ChatMessage(role=msg["role"], content=msg["content"])
-                    for msg in truncated_dicts
-                ]
+                truncated_dicts = token_manager.truncate_context(
+                    [{"role": msg.role, "content": msg.content} for msg in all_messages]
+                )
+                enhanced_messages = [ChatMessage(role=msg["role"], content=msg["content"]) for msg in truncated_dicts]
             else:
                 enhanced_messages = all_messages
-            
+
             logger.info(f"Added conversation context: {len(conversation_context)} previous messages")
-    
+
     # Store user message in conversation memory
     if ENHANCED_STREAMING_AVAILABLE and request.session_id and request.use_conversation_memory:
         streaming_manager = get_streaming_manager()
         for msg in request.messages:
             if msg.role == "user":
                 streaming_manager.conversation_memory.add_message(
-                    session_id=request.session_id,
-                    role=msg.role,
-                    content=msg.content
+                    session_id=request.session_id, role=msg.role, content=msg.content
                 )
-    
+
     if request.stream:
         # Use enhanced streaming if available
         if ENHANCED_STREAMING_AVAILABLE:
             return BufferedEventSourceResponse(
                 generate_chat_stream(request, enhanced_messages, token_manager),
-                session_id=request.session_id
+                session_id=request.session_id,
             )
         else:
             return StreamingResponse(
@@ -324,57 +313,53 @@ async def chat_completions(request: ChatRequest):
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "Content-Type": "text/event-stream"
-                }
+                    "Content-Type": "text/event-stream",
+                },
             )
     else:
         # Non-streaming response
         if not LLM_CLIENT_AVAILABLE:
             raise HTTPException(status_code=503, detail="LLM client not available")
-        
+
         try:
             client = get_llm_client()
-            
+
             # Convert messages to LLM format
-            llm_messages = [
-                LLMChatMessage(role=msg.role, content=msg.content)
-                for msg in request.messages
-            ]
-            
+            llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in request.messages]
+
             # Define tools if enabled
             tools = None
             if request.tools_enabled and TOOLS_AVAILABLE:
                 try:
-                    tool_manager = get_tool_manager(
-                        tenant_id=request.tenant_id,
-                        user_id=request.user_id
-                    )
+                    tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
                     tools = tool_manager.get_openai_functions()
                 except Exception as e:
                     print(f"Warning: Failed to load tools for non-streaming: {e}")
                     tools = None
-            
+
             # Get response from LLM
             response = await client.chat_completion(
                 messages=llm_messages,
                 tools=tools,
                 stream=False,
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=1000,
             )
-            
+
             return ChatResponse(
-                choices=[{
-                    "message": {
-                        "role": "assistant",
-                        "content": response.content,
-                        "tool_calls": response.tool_calls
-                    },
-                    "finish_reason": response.finish_reason
-                }],
-                usage=response.usage
+                choices=[
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "content": response.content,
+                            "tool_calls": response.tool_calls,
+                        },
+                        "finish_reason": response.finish_reason,
+                    }
+                ],
+                usage=response.usage,
             )
-            
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"LLM error: {str(e)}")
 
@@ -385,17 +370,17 @@ async def chat_stream_sse(messages: str, tools_enabled: bool = True):
     Server-Sent Events endpoint for chat streaming.
     Alternative to WebSocket for simpler clients.
     """
-    
+
     try:
         parsed_messages = json.loads(messages)
         request = ChatRequest(
             messages=[ChatMessage(**msg) for msg in parsed_messages],
             stream=True,
-            tools_enabled=tools_enabled
+            tools_enabled=tools_enabled,
         )
-        
+
         return EventSourceResponse(generate_chat_stream(request))
-        
+
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid messages format")
 
@@ -406,18 +391,18 @@ async def websocket_chat(websocket: WebSocket, client_id: str):
     WebSocket endpoint for real-time chat.
     Supports bidirectional communication and tool calling.
     """
-    
+
     await manager.connect(websocket, client_id)
-    
+
     try:
         while True:
             # Receive message from client
             data = await websocket.receive_text()
-            
+
             try:
                 request_data = json.loads(data)
                 request = ChatRequest(**request_data)
-                
+
                 # Generate and stream response
                 async for chunk in generate_chat_stream(request):
                     # Extract data part from SSE format
@@ -425,11 +410,11 @@ async def websocket_chat(websocket: WebSocket, client_id: str):
                         message_data = chunk[6:].strip()
                         if message_data:
                             await manager.send_personal_message(message_data, client_id)
-                
+
             except (json.JSONDecodeError, ValueError) as e:
                 error_msg = json.dumps({"type": "error", "message": f"Invalid request: {str(e)}"})
                 await manager.send_personal_message(error_msg, client_id)
-                
+
     except WebSocketDisconnect:
         manager.disconnect(client_id)
 
@@ -437,33 +422,35 @@ async def websocket_chat(websocket: WebSocket, client_id: str):
 @router.get("/tools")
 async def list_available_tools():
     """List available tools for LLM function calling."""
-    
+
     if not TOOLS_AVAILABLE:
         return {"error": "Tools system not available", "tools": []}
-    
+
     try:
         # Get tool manager
         tool_manager = get_tool_manager()
-        
+
         # Get tools schema
         schema = tool_manager.get_tools_schema()
-        
+
         # Format for API response
         tools_list = []
         for tool_name, tool_info in schema["tools"].items():
             if "error" not in tool_info:
-                tools_list.append({
-                    "name": tool_info["name"],
-                    "description": tool_info["description"],
-                    "parameters": tool_info["schema"]
-                })
-        
+                tools_list.append(
+                    {
+                        "name": tool_info["name"],
+                        "description": tool_info["description"],
+                        "parameters": tool_info["schema"],
+                    }
+                )
+
         return {
             "tools": tools_list,
             "total_count": len(tools_list),
-            "openai_functions": tool_manager.get_openai_functions()
+            "openai_functions": tool_manager.get_openai_functions(),
         }
-        
+
     except Exception as e:
         return {"error": f"Failed to load tools: {str(e)}", "tools": []}
 
@@ -471,20 +458,20 @@ async def list_available_tools():
 @router.get("/sessions/{session_id}/stats")
 async def get_session_stats(session_id: str):
     """Get conversation statistics for a session."""
-    
+
     if not ENHANCED_STREAMING_AVAILABLE:
         raise HTTPException(status_code=503, detail="Enhanced streaming not available")
-    
+
     try:
         streaming_manager = get_streaming_manager()
         stats = streaming_manager.conversation_memory.get_session_stats(session_id)
-        
+
         return {
             "session_id": session_id,
             "stats": stats,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get session stats: {str(e)}")
 
@@ -492,23 +479,21 @@ async def get_session_stats(session_id: str):
 @router.get("/sessions/{session_id}/context")
 async def get_session_context(session_id: str, max_tokens: Optional[int] = None):
     """Get conversation context for a session."""
-    
+
     if not ENHANCED_STREAMING_AVAILABLE:
         raise HTTPException(status_code=503, detail="Enhanced streaming not available")
-    
+
     try:
         streaming_manager = get_streaming_manager()
-        context = streaming_manager.conversation_memory.get_conversation_context(
-            session_id, max_tokens
-        )
-        
+        context = streaming_manager.conversation_memory.get_conversation_context(session_id, max_tokens)
+
         return {
             "session_id": session_id,
             "context": context,
             "message_count": len(context),
             "total_tokens": sum(msg.get("token_count", 0) for msg in context),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get session context: {str(e)}")

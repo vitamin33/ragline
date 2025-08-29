@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# Check for co-author lines
-COAUTHOR_PATTERN="Co-authored-by"
-if git diff --cached | grep -q "$COAUTHOR_PATTERN"; then
-    echo "❌ ERROR: Co-author tags detected. Remove before committing."
+# Check for co-author lines in staged changes (exclude documentation)
+COAUTHOR_PATTERN="Co-authored-by:"
+if git diff --cached | grep -v "\.md:" | grep -q "$COAUTHOR_PATTERN"; then
+    echo "❌ ERROR: Co-author tags detected in code changes. Remove before committing."
     exit 1
 fi
 

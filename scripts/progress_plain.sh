@@ -20,21 +20,21 @@ echo ""
 for agent in A B C; do
     # Extract agent section
     agent_section=$(awk "/## 📋 Agent $agent/,/^---$/" "$STATUS_FILE")
-    
+
     # Count tasks
     total=$(echo "$agent_section" | grep -c "^- \[.\]")
     completed=$(echo "$agent_section" | grep -c "^- \[x\]")
-    
+
     # Calculate percentage
     if [ "$total" -eq 0 ]; then
         percentage=0
     else
         percentage=$((completed * 100 / total))
     fi
-    
+
     # Display agent progress
     echo "Agent $agent: $completed/$total tasks (${percentage}%)"
-    
+
     # Show progress bar
     printf "["
     for ((i=0; i<20; i++)); do
@@ -45,7 +45,7 @@ for agent in A B C; do
         fi
     done
     printf "]\n"
-    
+
     # Show blockers if any
     blocker=$(echo "$agent_section" | grep "^**Blockers:**" | sed 's/\*\*Blockers:\*\*//')
     if [ "$blocker" != " None" ] && [ -n "$blocker" ]; then

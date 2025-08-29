@@ -4,7 +4,7 @@
 
 ### Problem
 The CLAUDE.md file explicitly states:
-- **"NEVER add co-author tags to commits"** 
+- **"NEVER add co-author tags to commits"**
 - **"Commit (NO CO-AUTHORS!)"**
 
 However, AI assistants might automatically add Co-Authored-By lines, violating project rules.
@@ -59,7 +59,7 @@ The git hooks prevent commits containing:
 ### ❌ Forbidden Patterns
 - `Co-Authored-By:` lines
 - `🤖 Generated with [Claude Code]` attribution
-- `generated.*claude` or `claude.*generated` 
+- `generated.*claude` or `claude.*generated`
 - `anthropic` mentions in commit messages
 
 ### ✅ Example Blocked Commit
@@ -95,7 +95,7 @@ Test the hooks work correctly:
 echo "test: commit Co-Authored-By: Test <test@example.com>" > test.tmp
 git commit --allow-empty -F test.tmp
 
-# This should SUCCESS  
+# This should SUCCESS
 git commit --allow-empty -m "feat: test commit without forbidden content"
 ```
 
@@ -131,7 +131,7 @@ chmod +x .git/hooks/commit-msg
 The hooks provide **immediate feedback** when AI assistants attempt to add forbidden content:
 
 1. **AI tries to commit** with Co-Authored-By
-2. **Hook blocks commit** with clear error message  
+2. **Hook blocks commit** with clear error message
 3. **AI learns** to avoid forbidden patterns
 4. **Clean commits** are created automatically
 
@@ -145,7 +145,7 @@ The hooks provide **immediate feedback** when AI assistants attempt to add forbi
 
 1. **Prevents Rule Violations**: Impossible to commit forbidden content
 2. **Immediate Feedback**: Clear error messages explain what's wrong
-3. **Automatic Learning**: AI assistants adapt to avoid blocked patterns  
+3. **Automatic Learning**: AI assistants adapt to avoid blocked patterns
 4. **Project Consistency**: All contributors follow same rules
 5. **Zero Maintenance**: Once set up, works automatically
 
@@ -168,7 +168,7 @@ git commit --no-verify -m "emergency commit"
 
 ### Hook Too Strict
 If the hook blocks legitimate content, update the patterns in:
-- `scripts/setup-git-hooks.sh` 
+- `scripts/setup-git-hooks.sh`
 - Re-run setup script
 
 ## 📚 Related Documentation

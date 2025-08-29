@@ -1,0 +1,123 @@
+name: Contract Validation
+on: [pull_request, push]
+
+jobs:
+  validate-contracts:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install validators
+      run: |
+        pip install jsonschema openapi-spec-validator pyyaml
+
+    - name: Validate Event Contracts
+      run: |
+        echo "🔍 Validating event contracts..."
+        python -c "
+        import json, pathlib
+        from jsonschema import Draft7Validator
+        
+        contracts_dir = pathlib.Path('contracts/events')
+        if contracts_dir.exists():
+            for contract in contracts_dir.glob('*.json'):
+                print(f'📄 Validating {contract.name}...')
+                try:
+                    data = json.load(contract.open())
+                    # Basic JSON validation
+                    Draft7Validator.check_schema(data)
+                    print(f'✅ {contract.name} is valid JSON Schema')
+                except Exception as e:
+                    print(f'❌ {contract.name} validation failed: {e}')
+                    exit(1)
+        else:
+            print('⚠️ No contracts/events directory found')
+        "
+
+    - name: Validate OpenAPI Spec
+      run: |
+        echo "🔍 Validating OpenAPI specification..."
+        python -c "
+        import yaml, pathlib
+        from openapi_spec_validator import validate_spec
+        
+        openapi_file = pathlib.Path('contracts/openapi.yaml')
+        if openapi_file.exists():
+            try:
+                with open(openapi_file) as f:
+                    spec = yaml.safe_load(f)
+                validate_spec(spec)
+                print('✅ OpenAPI spec is valid')
+            except Exception as e:
+                print(f'❌ OpenAPI validation failed: {e}')
+                exit(1)
+        else:
+            print('ℹ️ OpenAPI spec not found - will be created by Agent A')
+        "
+
+    - name: Contract Compatibility Check
+      run: |
+        echo "🔍 Checking contract compatibility..."
+        python -c "
+        import json, pathlib
+        
+        # Check that event contracts have required fields
+        required_base_fields = ['event', 'tenant_id', 'ts', 'version']
+        
+        contracts_dir = pathlib.Path('contracts/events')
+        if contracts_dir.exists():
+            for contract in contracts_dir.glob('*.json'):
+                with open(contract) as f:
+                    schema = json.load(f)
+                
+                properties = schema.get('properties', {})
+                required = schema.get('required', [])
+                
+                missing_fields = [field for field in required_base_fields 
+                                if field not in properties]
+                
+                if missing_fields:
+                    print(f'❌ {contract.name} missing base fields: {missing_fields}')
+                    exit(1)
+                else:
+                    print(f'✅ {contract.name} has all required base fields')
+        print('✅ All contracts pass compatibility check')
+        "
+
+    - name: Generate Contract Report
+      run: |
+        echo "📊 Contract Validation Report" > contract_report.txt
+        echo "================================" >> contract_report.txt
+        echo "Generated: $(date)" >> contract_report.txt
+        echo "" >> contract_report.txt
+        
+        if [ -d "contracts/events" ]; then
+          echo "Event Contracts:" >> contract_report.txt
+          for file in contracts/events/*.json; do
+            if [ -f "$file" ]; then
+              echo "- $(basename $file)" >> contract_report.txt
+            fi
+          done
+        fi
+        
+        if [ -f "contracts/openapi.yaml" ]; then
+          echo "- openapi.yaml" >> contract_report.txt
+        fi
+        
+        echo "" >> contract_report.txt
+        echo "✅ All contracts validated successfully" >> contract_report.txt
+        
+        cat contract_report.txt
+
+    - name: Upload Contract Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: contract-validation-report
+        path: contract_report.txt
+        retention-days: 30
