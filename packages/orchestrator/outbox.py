@@ -72,7 +72,8 @@ class OutboxConsumer:
             return
 
         logger.info(
-            f"Starting outbox consumer (poll interval: {self.poll_interval}s, batch size: {self.batch_size})"
+            f"Starting outbox consumer (poll interval: {self.poll_interval}s, "
+            f"batch size: {self.batch_size})"
         )
 
         # Initialize connections
@@ -142,7 +143,7 @@ class OutboxConsumer:
             # Fetch unprocessed events ordered by created_at
             query = (
                 select(Outbox)
-                .where(Outbox.processed == False)
+                .where(not Outbox.processed)
                 .order_by(Outbox.created_at)
                 .limit(self.batch_size)
             )
@@ -244,7 +245,8 @@ class OutboxConsumer:
             # Just mark as processed to prevent infinite retries
             await self._mark_event_processed(event.id)
             logger.error(
-                f"Event {event.id} marked as processed after {event.retry_count} failed retries (DLQ disabled)"
+                f"Event {event.id} marked as processed after {event.retry_count} "
+                f"failed retries (DLQ disabled)"
             )
 
     async def _move_to_dlq(self, event: OutboxEvent):

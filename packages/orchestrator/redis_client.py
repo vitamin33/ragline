@@ -161,7 +161,7 @@ class RedisStreamClient:
             if ":" in url:  # Remove port
                 return url.split(":", 1)[0]
             return url or "localhost"
-        except:
+        except Exception:
             return "localhost"
 
     def _parse_port(self) -> int:
@@ -177,7 +177,7 @@ class RedisStreamClient:
             if ":" in url:
                 return int(url.split(":", 1)[1])
             return 6379
-        except:
+        except Exception:
             return 6379
 
     def _parse_db(self) -> int:
@@ -188,7 +188,7 @@ class RedisStreamClient:
                 db_part = url.split("/")[-1]
                 return int(db_part) if db_part.isdigit() else 0
             return 0
-        except:
+        except Exception:
             return 0
 
     def _parse_password(self) -> Optional[str]:
@@ -201,7 +201,7 @@ class RedisStreamClient:
                     return auth_part.split(":", 1)[1]
                 return auth_part if auth_part else None
             return None
-        except:
+        except Exception:
             return None
 
     async def initialize(self):

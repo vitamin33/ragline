@@ -42,7 +42,7 @@ class AuthService:
             result = await db.execute(
                 select(User)
                 .options(selectinload(User.tenant))
-                .where(User.email == email, User.is_active == True)
+                .where(User.email == email, User.is_active)
             )
             user = result.scalar_one_or_none()
 
@@ -71,7 +71,7 @@ class AuthService:
             query = (
                 select(User)
                 .options(selectinload(User.tenant))
-                .where(User.id == user_id, User.is_active == True)
+                .where(User.id == user_id, User.is_active)
             )
 
             if tenant_id:

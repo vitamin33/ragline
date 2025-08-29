@@ -130,7 +130,7 @@ async def create_order(
                     and_(
                         Product.id == product_id,
                         Product.tenant_id == tenant_id,
-                        Product.is_active == True,
+                        Product.is_active,
                     )
                 )
             )
