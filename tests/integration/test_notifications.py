@@ -492,7 +492,7 @@ async def test_stream_to_notification_flow():
 
             if message_id:
                 published_events += 1
-                print(f"   📤 Published event {i+1}: {event_info['status'].value}")
+                print(f"   📤 Published event {i + 1}: {event_info['status'].value}")
 
         print(f"   📊 Events published: {published_events}/{len(test_events)}")
 
@@ -686,7 +686,7 @@ async def main():
     print(f"🎯 Tests Run: {total}")
     print(f"✅ Tests Passed: {passed}")
     print(f"❌ Tests Failed: {total - passed}")
-    print(f"📈 Success Rate: {(passed/total)*100:.1f}%")
+    print(f"📈 Success Rate: {(passed / total) * 100:.1f}%")
 
     if passed == total:
         print("\n🏆 PERFECT: SSE/WebSocket notifier implementation flawless!")

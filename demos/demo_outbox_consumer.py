@@ -136,7 +136,7 @@ async def demo_outbox_pattern():
             await asyncio.sleep(0.01)
 
         duration = time.time() - start_time
-        print(f"   ✅ Processed {len(mock_events)} events in {duration*1000:.1f}ms")
+        print(f"   ✅ Processed {len(mock_events)} events in {duration * 1000:.1f}ms")
         print()
 
     except Exception as e:

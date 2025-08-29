@@ -63,7 +63,9 @@ async def demonstrate_rag_system():
 
         print(f"✅ Generated {len(embeddings)} embeddings in {embedding_time:.2f}s")
         print(f"📏 Dimensions: {len(embeddings[0])}")
-        print(f"⚡ Average: {embedding_time/len(embeddings)*1000:.1f}ms per document")
+        print(
+            f"⚡ Average: {embedding_time / len(embeddings) * 1000:.1f}ms per document"
+        )
 
         # Store embeddings in documents
         for doc, embedding in zip(all_documents, embeddings):
@@ -109,7 +111,7 @@ async def demonstrate_rag_system():
             results = await vector_search(query, all_documents, limit=2)
             search_time = time.time() - start_time
 
-            print(f"   ⏱️  Search time: {search_time*1000:.1f}ms")
+            print(f"   ⏱️  Search time: {search_time * 1000:.1f}ms")
             print(f"   📊 Found {len(results)} relevant documents:")
 
             for i, (doc, score) in enumerate(results):
@@ -118,7 +120,7 @@ async def demonstrate_rag_system():
                 name = doc.metadata.get("name", "N/A")
                 price = doc.metadata.get("price", "N/A")
                 print(
-                    f"     {i+1}. [{doc_type}] {name} (${price}) - {content_preview}..."
+                    f"     {i + 1}. [{doc_type}] {name} (${price}) - {content_preview}..."
                 )
                 print(f"        Similarity: {score:.3f}")
 
@@ -170,7 +172,7 @@ async def demonstrate_rag_system():
             name = doc.metadata.get("name", "Unknown")
             price = doc.metadata.get("price", "N/A")
             dietary = doc.metadata.get("dietary_info", [])
-            print(f"   {i+1}. {name} (${price}) - Score: {score:.3f}")
+            print(f"   {i + 1}. {name} (${price}) - Score: {score:.3f}")
             print(f"      Dietary: {', '.join(dietary) if dietary else 'None'}")
             print(f"      Reasons: {', '.join(reasons)}")
 
@@ -214,7 +216,7 @@ async def demonstrate_rag_system():
         print("=" * 60)
         print(f"✅ Documents processed: {len(all_documents)} chunks")
         print(f"✅ Embeddings generated: {len(embeddings)} vectors (1536 dimensions)")
-        print(f"✅ Vector search: {search_time*1000:.1f}ms average query time")
+        print(f"✅ Vector search: {search_time * 1000:.1f}ms average query time")
         print("✅ Business rules: Dietary preferences, pricing, ratings")
         print("✅ Context generation: LLM-ready formatted output")
         print("✅ Multi-document types: Menu items, policies, FAQs")

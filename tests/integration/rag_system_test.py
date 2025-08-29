@@ -187,7 +187,7 @@ async def test_rag_system():
                 "This is a test document with multiple sentences. " * 20,
                 f"test_doc_{i}",
             )
-            print(f"   ✅ Config {i+1}: Generated {len(chunks)} chunks")
+            print(f"   ✅ Config {i + 1}: Generated {len(chunks)} chunks")
 
         # Test retrieval configs
         retrieval_configs = [
@@ -197,7 +197,7 @@ async def test_rag_system():
 
         for i, config in enumerate(retrieval_configs):
             print(
-                f"   ✅ Retrieval config {i+1}: max_results={config.max_results}, threshold={config.similarity_threshold}"
+                f"   ✅ Retrieval config {i + 1}: max_results={config.max_results}, threshold={config.similarity_threshold}"
             )
 
     except Exception as e:

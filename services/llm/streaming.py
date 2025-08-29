@@ -385,7 +385,7 @@ class StreamingManager:
             logger.error(f"Streaming error for {stream_id}: {e}")
 
             # Send error event
-            error_data = f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
+            error_data = f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
             yield error_data
 
         finally:
@@ -469,7 +469,7 @@ class BufferedEventSourceResponse:
             logger.error(f"Streaming response error: {e}")
 
             # Send error and close
-            error_chunk = f'data: {json.dumps({"type": "error", "error": str(e)})}\n\n'
+            error_chunk = f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
             await send(
                 {"type": "http.response.body", "body": error_chunk.encode("utf-8")}
             )

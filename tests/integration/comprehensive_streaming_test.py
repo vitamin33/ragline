@@ -213,7 +213,7 @@ async def comprehensive_streaming_test():
             buffer.add_item(data)
 
         buffer_time = time.time() - start_time
-        print(f"   ⚡ Buffering 100 items: {buffer_time*1000:.1f}ms")
+        print(f"   ⚡ Buffering 100 items: {buffer_time * 1000:.1f}ms")
 
         # Test memory operations
         start_time = time.time()
@@ -225,7 +225,7 @@ async def comprehensive_streaming_test():
         memory_time = time.time() - start_time
         context = memory.get_conversation_context(test_session)
 
-        print(f"   ⚡ Memory operations (50 messages): {memory_time*1000:.1f}ms")
+        print(f"   ⚡ Memory operations (50 messages): {memory_time * 1000:.1f}ms")
         print(f"   📊 Context retrieval: {len(context)} messages")
 
         # Test token counting performance
@@ -239,7 +239,7 @@ async def comprehensive_streaming_test():
             token_count = token_manager.count_tokens(test_text)
 
         token_time = time.time() - start_time
-        print(f"   ⚡ Token counting (20 operations): {token_time*1000:.1f}ms")
+        print(f"   ⚡ Token counting (20 operations): {token_time * 1000:.1f}ms")
         print(f"   📊 Text tokens: {token_count}")
 
         # === FINAL SUMMARY ===

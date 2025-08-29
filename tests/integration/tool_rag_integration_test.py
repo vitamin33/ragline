@@ -271,7 +271,7 @@ async def test_tool_rag_integration():
         if result.success:
             data = result.data
 
-            print(f"   ⚡ Tool execution time: {execution_time*1000:.1f}ms")
+            print(f"   ⚡ Tool execution time: {execution_time * 1000:.1f}ms")
             print(f"   📊 Items returned: {data.get('returned', 0)}")
 
             # Analyze context size
