@@ -40,25 +40,15 @@ class ChunkingConfig(BaseModel):
     min_chunk_size: int = Field(default=50, description="Minimum tokens per chunk")
 
     # Text processing
-    preserve_sentences: bool = Field(
-        default=True, description="Try to keep sentences intact"
-    )
-    preserve_paragraphs: bool = Field(
-        default=True, description="Try to keep paragraphs intact"
-    )
+    preserve_sentences: bool = Field(default=True, description="Try to keep sentences intact")
+    preserve_paragraphs: bool = Field(default=True, description="Try to keep paragraphs intact")
 
     # Tokenizer settings
-    tokenizer_model: str = Field(
-        default="cl100k_base", description="Tokenizer model name"
-    )
+    tokenizer_model: str = Field(default="cl100k_base", description="Tokenizer model name")
 
     # Metadata settings
-    include_document_metadata: bool = Field(
-        default=True, description="Include document metadata in chunks"
-    )
-    include_position_metadata: bool = Field(
-        default=True, description="Include position metadata"
-    )
+    include_document_metadata: bool = Field(default=True, description="Include document metadata in chunks")
+    include_position_metadata: bool = Field(default=True, description="Include position metadata")
 
 
 class DocumentChunker(ABC):
@@ -140,9 +130,7 @@ class StructuredDataChunker(DocumentChunker):
 
         # If content is too large, split by sentences
         if token_count > self.config.chunk_size:
-            return self._split_large_structured_content(
-                content, document_id, document_metadata
-            )
+            return self._split_large_structured_content(content, document_id, document_metadata)
 
         # Single chunk for normal-sized structured content
         chunk_id = f"{document_id}_chunk_0"
@@ -179,17 +167,12 @@ class StructuredDataChunker(DocumentChunker):
             sentence_tokens = self.count_tokens(sentence)
 
             # If adding this sentence would exceed chunk size
-            if (
-                current_tokens + sentence_tokens > self.config.chunk_size
-                and current_chunk
-            ):
+            if current_tokens + sentence_tokens > self.config.chunk_size and current_chunk:
                 # Create chunk
                 chunk_id = f"{document_id}_chunk_{len(chunks)}"
                 end_index = start_index + len(current_chunk)
 
-                metadata = self.create_chunk_metadata(
-                    document_metadata, len(chunks), -1, start_index, end_index
-                )
+                metadata = self.create_chunk_metadata(document_metadata, len(chunks), -1, start_index, end_index)
 
                 chunk = Chunk(
                     content=current_chunk.strip(),
@@ -204,9 +187,7 @@ class StructuredDataChunker(DocumentChunker):
 
                 # Start new chunk with overlap
                 overlap_text = (
-                    current_chunk[-self.config.overlap_size :]
-                    if len(current_chunk) > self.config.overlap_size
-                    else ""
+                    current_chunk[-self.config.overlap_size :] if len(current_chunk) > self.config.overlap_size else ""
                 )
                 current_chunk = overlap_text + " " + sentence
                 current_tokens = self.count_tokens(current_chunk)
@@ -324,10 +305,7 @@ class UnstructuredTextChunker(DocumentChunker):
                 continue
 
             # Check if adding paragraph exceeds chunk size
-            if (
-                current_tokens + paragraph_tokens > self.config.chunk_size
-                and current_chunk
-            ):
+            if current_tokens + paragraph_tokens > self.config.chunk_size and current_chunk:
                 # Create current chunk
                 chunks.append(
                     self._create_chunk(
@@ -342,9 +320,7 @@ class UnstructuredTextChunker(DocumentChunker):
 
                 # Start new chunk with overlap
                 overlap_text = self._get_overlap_text(current_chunk)
-                current_chunk = (
-                    overlap_text + "\n\n" + paragraph if overlap_text else paragraph
-                )
+                current_chunk = overlap_text + "\n\n" + paragraph if overlap_text else paragraph
                 current_tokens = self.count_tokens(current_chunk)
             else:
                 # Add paragraph to current chunk
@@ -406,18 +382,13 @@ class UnstructuredTextChunker(DocumentChunker):
                     current_tokens = 0
 
                 # Split large sentence by words
-                word_chunks = self._chunk_by_words(
-                    sentence, document_id, document_metadata
-                )
+                word_chunks = self._chunk_by_words(sentence, document_id, document_metadata)
                 chunks.extend(word_chunks)
                 char_offset += len(sentence) + 1
                 continue
 
             # Check if adding sentence exceeds chunk size
-            if (
-                current_tokens + sentence_tokens > self.config.chunk_size
-                and current_chunk
-            ):
+            if current_tokens + sentence_tokens > self.config.chunk_size and current_chunk:
                 # Create current chunk
                 chunks.append(
                     self._create_chunk(
@@ -432,9 +403,7 @@ class UnstructuredTextChunker(DocumentChunker):
 
                 # Start new chunk with overlap
                 overlap_text = self._get_overlap_text(current_chunk)
-                current_chunk = (
-                    overlap_text + " " + sentence if overlap_text else sentence
-                )
+                current_chunk = overlap_text + " " + sentence if overlap_text else sentence
                 current_tokens = self.count_tokens(current_chunk)
             else:
                 # Add sentence to current chunk
@@ -465,9 +434,7 @@ class UnstructuredTextChunker(DocumentChunker):
         sentences = re.split(sentence_pattern, text)
         return [s.strip() for s in sentences if s.strip()]
 
-    def _chunk_by_words(
-        self, text: str, document_id: str, document_metadata: Optional[Dict[str, Any]]
-    ) -> List[Chunk]:
+    def _chunk_by_words(self, text: str, document_id: str, document_metadata: Optional[Dict[str, Any]]) -> List[Chunk]:
         """Last resort: chunk by words when sentences are too large."""
 
         words = text.split()
@@ -526,9 +493,7 @@ class UnstructuredTextChunker(DocumentChunker):
         for sentence in reversed(sentences):
             sentence_tokens = self.count_tokens(sentence)
             if overlap_tokens + sentence_tokens <= self.config.overlap_size:
-                overlap_text = (
-                    sentence + " " + overlap_text if overlap_text else sentence
-                )
+                overlap_text = sentence + " " + overlap_text if overlap_text else sentence
                 overlap_tokens += sentence_tokens
             else:
                 break
@@ -558,9 +523,7 @@ class UnstructuredTextChunker(DocumentChunker):
         """Create a chunk object."""
         chunk_id = f"{document_id}_chunk_{chunk_index}"
 
-        metadata = self.create_chunk_metadata(
-            document_metadata, chunk_index, -1, start_index, end_index
-        )
+        metadata = self.create_chunk_metadata(document_metadata, chunk_index, -1, start_index, end_index)
 
         token_count = self.count_tokens(content)
 
@@ -587,9 +550,7 @@ class ChunkingStrategy:
     """Factory for creating appropriate chunkers based on document type."""
 
     @staticmethod
-    def create_chunker(
-        document_type: str, config: Optional[ChunkingConfig] = None
-    ) -> DocumentChunker:
+    def create_chunker(document_type: str, config: Optional[ChunkingConfig] = None) -> DocumentChunker:
         """Create appropriate chunker based on document type."""
 
         if config is None:
@@ -601,16 +562,12 @@ class ChunkingStrategy:
             return UnstructuredTextChunker(config)
         else:
             # Default to unstructured text chunker
-            logger.warning(
-                f"Unknown document type '{document_type}', using unstructured chunker"
-            )
+            logger.warning(f"Unknown document type '{document_type}', using unstructured chunker")
             return UnstructuredTextChunker(config)
 
 
 # Convenience functions
-def chunk_menu_item(
-    item_data: Dict[str, Any], item_id: str, config: Optional[ChunkingConfig] = None
-) -> List[Chunk]:
+def chunk_menu_item(item_data: Dict[str, Any], item_id: str, config: Optional[ChunkingConfig] = None) -> List[Chunk]:
     """Chunk a menu item into searchable content."""
 
     # Format menu item content

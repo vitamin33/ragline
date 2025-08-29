@@ -21,17 +21,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Upgrade schema."""
     # Add idempotency_key column for duplicate request detection
-    op.add_column(
-        "orders", sa.Column("idempotency_key", sa.String(length=255), nullable=True)
-    )
+    op.add_column("orders", sa.Column("idempotency_key", sa.String(length=255), nullable=True))
 
     # Add response_json column to store cached responses
     op.add_column("orders", sa.Column("response_json", sa.JSON(), nullable=True))
 
     # Add unique constraint on idempotency_key for duplicate prevention
-    op.create_unique_constraint(
-        "uq_orders_idempotency_key", "orders", ["idempotency_key"]
-    )
+    op.create_unique_constraint("uq_orders_idempotency_key", "orders", ["idempotency_key"])
 
 
 def downgrade() -> None:

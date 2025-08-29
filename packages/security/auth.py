@@ -33,16 +33,12 @@ class AuthService:
         return pwd_context.hash(password)
 
     @staticmethod
-    async def authenticate_user(
-        db: AsyncSession, email: str, password: str
-    ) -> Optional[User]:
+    async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
         """Authenticate a user by email and password."""
         try:
             # Query user by email with tenant information
             result = await db.execute(
-                select(User)
-                .options(selectinload(User.tenant))
-                .where(User.email == email, User.is_active == True)
+                select(User).options(selectinload(User.tenant)).where(User.email == email, User.is_active)
             )
             user = result.scalar_one_or_none()
 
@@ -63,16 +59,10 @@ class AuthService:
             return None
 
     @staticmethod
-    async def get_user_by_id(
-        db: AsyncSession, user_id: int, tenant_id: Optional[int] = None
-    ) -> Optional[User]:
+    async def get_user_by_id(db: AsyncSession, user_id: int, tenant_id: Optional[int] = None) -> Optional[User]:
         """Get a user by ID, optionally filtered by tenant."""
         try:
-            query = (
-                select(User)
-                .options(selectinload(User.tenant))
-                .where(User.id == user_id, User.is_active == True)
-            )
+            query = select(User).options(selectinload(User.tenant)).where(User.id == user_id, User.is_active)
 
             if tenant_id:
                 query = query.where(User.tenant_id == tenant_id)
@@ -138,9 +128,7 @@ async def get_current_user(
 ) -> User:
     """Dependency to get current user from database."""
 
-    user = await AuthService.get_user_by_id(
-        db, user_id=token_data.user_id, tenant_id=token_data.tenant_id
-    )
+    user = await AuthService.get_user_by_id(db, user_id=token_data.user_id, tenant_id=token_data.tenant_id)
 
     if user is None:
         raise HTTPException(
@@ -156,9 +144,7 @@ async def get_current_active_user(
 ) -> User:
     """Dependency to get current active user."""
     if not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
     return current_user
 
 

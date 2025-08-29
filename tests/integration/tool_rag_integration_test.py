@@ -72,21 +72,15 @@ async def test_tool_rag_integration():
                     # Check for RAG context
                     if "rag_context" in data:
                         rag_info = data["rag_context"]
-                        print(
-                            f"      📊 RAG Context: {rag_info.get('query_processed', 'N/A')}"
-                        )
+                        print(f"      📊 RAG Context: {rag_info.get('query_processed', 'N/A')}")
 
                         if "context_items" in rag_info:
-                            print(
-                                f"      🔍 Retrieved {len(rag_info['context_items'])} context items"
-                            )
+                            print(f"      🔍 Retrieved {len(rag_info['context_items'])} context items")
 
                     # Show first item with relevance
                     if data.get("items"):
                         first_item = data["items"][0]
-                        print(
-                            f"      🥘 Top result: {first_item['name']} (${first_item['price']})"
-                        )
+                        print(f"      🥘 Top result: {first_item['name']} (${first_item['price']})")
 
                         if "rag_relevance" in first_item:
                             relevance = first_item["rag_relevance"]
@@ -106,9 +100,7 @@ async def test_tool_rag_integration():
 
         from tools.apply_promos import ApplyPromosTool
 
-        promo_tool = ApplyPromosTool(
-            tenant_id="test_restaurant", user_id="test_customer"
-        )
+        promo_tool = ApplyPromosTool(tenant_id="test_restaurant", user_id="test_customer")
 
         promo_scenarios = [
             {
@@ -135,12 +127,8 @@ async def test_tool_rag_integration():
                     if "context" in data:
                         context = data["context"]
                         business_context = context.get("business_context", {})
-                        print(
-                            f"      📊 Business Context: {business_context.get('discount_calculation', 'N/A')}"
-                        )
-                        print(
-                            f"      💡 Guidance: {len(context.get('next_steps', []))} next steps provided"
-                        )
+                        print(f"      📊 Business Context: {business_context.get('discount_calculation', 'N/A')}")
+                        print(f"      💡 Guidance: {len(context.get('next_steps', []))} next steps provided")
 
                 else:
                     print(f"      ❌ Failed: {result.error}")
@@ -193,12 +181,8 @@ async def test_tool_rag_integration():
                         tool_exec = context.get("tool_execution", {})
                         customer_guidance = context.get("customer_guidance", [])
 
-                        print(
-                            f"      🔧 Tool Context: {tool_exec.get('action_type', 'N/A')} workflow"
-                        )
-                        print(
-                            f"      📋 Customer Guidance: {len(customer_guidance)} guidance items"
-                        )
+                        print(f"      🔧 Tool Context: {tool_exec.get('action_type', 'N/A')} workflow")
+                        print(f"      📋 Customer Guidance: {len(customer_guidance)} guidance items")
 
                 else:
                     print(f"      ❌ Failed: {result.error}")
@@ -212,9 +196,7 @@ async def test_tool_rag_integration():
 
         from tools.manager import get_tool_manager
 
-        tool_manager = get_tool_manager(
-            tenant_id="test_restaurant", user_id="test_customer"
-        )
+        tool_manager = get_tool_manager(tenant_id="test_restaurant", user_id="test_customer")
 
         # Test enhanced tool execution
         test_tool_calls = [
@@ -279,9 +261,7 @@ async def test_tool_rag_integration():
                 rag_context = data["rag_context"]
                 context_items = rag_context.get("context_items", [])
 
-                total_context_chars = sum(
-                    len(item.get("content", "")) for item in context_items
-                )
+                total_context_chars = sum(len(item.get("content", "")) for item in context_items)
                 print(f"   📝 RAG context size: {total_context_chars} characters")
                 print(f"   🔍 Context items: {len(context_items)}")
 
@@ -307,9 +287,7 @@ async def test_tool_rag_integration():
 
     except ImportError as e:
         print(f"❌ Import error: {e}")
-        print(
-            "   Ensure you're in the correct directory and dependencies are installed"
-        )
+        print("   Ensure you're in the correct directory and dependencies are installed")
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback

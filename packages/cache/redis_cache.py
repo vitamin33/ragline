@@ -45,9 +45,7 @@ class RedisCache:
         """Build cache key with tenant isolation."""
         return f"{self.key_prefix}:{tenant_id}:cache:{cache_type}:{identifier}"
 
-    def _build_lock_key(
-        self, tenant_id: int, resource_type: str, identifier: str
-    ) -> str:
+    def _build_lock_key(self, tenant_id: int, resource_type: str, identifier: str) -> str:
         """Build distributed lock key."""
         return f"{self.key_prefix}:{tenant_id}:lock:{resource_type}:{identifier}"
 
@@ -57,9 +55,7 @@ class RedisCache:
         jitter = random.randint(0, self.jitter_range)
         return ttl + jitter
 
-    async def get(
-        self, tenant_id: int, cache_type: str, identifier: str
-    ) -> Optional[Any]:
+    async def get(self, tenant_id: int, cache_type: str, identifier: str) -> Optional[Any]:
         """Get value from cache."""
         try:
             client = await self.get_client()
@@ -120,9 +116,7 @@ class RedisCache:
             logger.error("Cache delete failed", key=key, error=str(e))
             return False
 
-    async def delete_pattern(
-        self, tenant_id: int, cache_type: str, pattern: str = "*"
-    ) -> int:
+    async def delete_pattern(self, tenant_id: int, cache_type: str, pattern: str = "*") -> int:
         """Delete multiple keys matching a pattern."""
         try:
             client = await self.get_client()
@@ -131,9 +125,7 @@ class RedisCache:
             keys = await client.keys(search_pattern)
             if keys:
                 deleted = await client.delete(*keys)
-                logger.debug(
-                    "Cache pattern delete", pattern=search_pattern, deleted=deleted
-                )
+                logger.debug("Cache pattern delete", pattern=search_pattern, deleted=deleted)
                 return deleted
             return 0
 
@@ -215,9 +207,7 @@ class RedisCache:
                     # Fetch fresh data
                     fresh_value = await fetch_func()
                     if fresh_value is not None:
-                        await self.set(
-                            tenant_id, cache_type, identifier, fresh_value, ttl
-                        )
+                        await self.set(tenant_id, cache_type, identifier, fresh_value, ttl)
 
                     return fresh_value
             except RuntimeError:
@@ -235,9 +225,7 @@ class RedisCache:
                 await self.set(tenant_id, cache_type, identifier, fresh_value, ttl)
             return fresh_value
 
-    async def invalidate_product_cache(
-        self, tenant_id: int, product_id: Optional[int] = None
-    ):
+    async def invalidate_product_cache(self, tenant_id: int, product_id: Optional[int] = None):
         """Invalidate product cache for a tenant."""
         if product_id:
             # Invalidate specific product
@@ -249,9 +237,7 @@ class RedisCache:
         # Also invalidate product lists
         await self.delete_pattern(tenant_id, "products", "*")
 
-        logger.info(
-            "Product cache invalidated", tenant_id=tenant_id, product_id=product_id
-        )
+        logger.info("Product cache invalidated", tenant_id=tenant_id, product_id=product_id)
 
     async def close(self):
         """Close Redis connection."""

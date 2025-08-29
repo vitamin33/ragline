@@ -48,17 +48,13 @@ class WorkerConfig:
     task_always_eager: bool = os.getenv("TASK_ALWAYS_EAGER", "false").lower() == "true"
 
     # Outbox polling configuration
-    outbox_poll_interval: float = float(
-        os.getenv("OUTBOX_POLL_INTERVAL", "0.1")
-    )  # 100ms
+    outbox_poll_interval: float = float(os.getenv("OUTBOX_POLL_INTERVAL", "0.1"))  # 100ms
     outbox_batch_size: int = int(os.getenv("OUTBOX_BATCH_SIZE", "50"))
 
     # Circuit breaker settings
     circuit_breaker_failure_threshold: int = int(os.getenv("CB_FAILURE_THRESHOLD", "5"))
     circuit_breaker_recovery_timeout: int = int(os.getenv("CB_RECOVERY_TIMEOUT", "60"))
-    circuit_breaker_expected_exception: str = os.getenv(
-        "CB_EXPECTED_EXCEPTION", "Exception"
-    )
+    circuit_breaker_expected_exception: str = os.getenv("CB_EXPECTED_EXCEPTION", "Exception")
 
     # Stream processing
     stream_block_time: int = int(os.getenv("STREAM_BLOCK_TIME", "100"))  # milliseconds

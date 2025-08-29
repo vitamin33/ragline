@@ -261,9 +261,7 @@ async def stream_events(token_data: TokenData = Depends(get_current_user_token))
 
             # Create consumer group if needed
             try:
-                await redis_client.xgroup_create(
-                    stream_key, consumer_group, id="0", mkstream=True
-                )
+                await redis_client.xgroup_create(stream_key, consumer_group, id="0", mkstream=True)
             except redis.exceptions.ResponseError:
                 pass
 
@@ -297,16 +295,12 @@ async def stream_events(token_data: TokenData = Depends(get_current_user_token))
                         for stream, msgs in messages:
                             for msg_id, fields in msgs:
                                 event_tenant_id = fields.get("tenant_id")
-                                if event_tenant_id and str(event_tenant_id) == str(
-                                    tenant_id
-                                ):
+                                if event_tenant_id and str(event_tenant_id) == str(tenant_id):
                                     yield {
                                         "event": fields.get("event_type", "unknown"),
                                         "data": fields.get("payload", "{}"),
                                     }
-                                    await redis_client.xack(
-                                        stream_key, consumer_group, msg_id
-                                    )
+                                    await redis_client.xack(stream_key, consumer_group, msg_id)
 
                     # Heartbeat every 30 seconds
                     current_time = asyncio.get_event_loop().time()

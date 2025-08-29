@@ -21,21 +21,16 @@ class DataIngestionManager:
     def __init__(self, embedding_manager: EmbeddingManager):
         self.embedding_manager = embedding_manager
 
-    async def ingest_menu_items(
-        self, menu_items: List[Dict[str, Any]], tenant_id: Optional[str] = None
-    ) -> List[str]:
+    async def ingest_menu_items(self, menu_items: List[Dict[str, Any]], tenant_id: Optional[str] = None) -> List[str]:
         """Ingest menu items into the RAG system."""
 
         logger.info(f"Ingesting {len(menu_items)} menu items")
 
-        all_chunks = []
         document_ids = []
 
         for item in menu_items:
             # Generate document ID
-            item_id = (
-                item.get("id") or item.get("sku") or str(hash(item.get("name", "")))
-            )
+            item_id = item.get("id") or item.get("sku") or str(hash(item.get("name", "")))
             if tenant_id:
                 doc_id = f"{tenant_id}_menu_{item_id}"
             else:
@@ -113,9 +108,7 @@ class DataIngestionManager:
         logger.info(f"Successfully ingested {len(document_ids)} policy chunks")
         return document_ids
 
-    async def ingest_faq_items(
-        self, faq_items: List[Dict[str, str]], tenant_id: Optional[str] = None
-    ) -> List[str]:
+    async def ingest_faq_items(self, faq_items: List[Dict[str, str]], tenant_id: Optional[str] = None) -> List[str]:
         """Ingest FAQ items into the RAG system."""
 
         logger.info(f"Ingesting {len(faq_items)} FAQ items")
@@ -159,9 +152,7 @@ class DataIngestionManager:
         logger.info(f"Successfully ingested {len(doc_ids)} FAQ items")
         return doc_ids
 
-    async def update_menu_item_availability(
-        self, item_updates: Dict[str, bool], tenant_id: Optional[str] = None
-    ):
+    async def update_menu_item_availability(self, item_updates: Dict[str, bool], tenant_id: Optional[str] = None):
         """Update menu item availability in the vector store."""
 
         logger.info(f"Updating availability for {len(item_updates)} items")
@@ -188,9 +179,7 @@ class DataIngestionManager:
 
         logger.info("Availability updates completed")
 
-    async def cleanup_old_documents(
-        self, tenant_id: Optional[str] = None, days_old: int = 30
-    ):
+    async def cleanup_old_documents(self, tenant_id: Optional[str] = None, days_old: int = 30):
         """Remove old documents from the vector store."""
 
         logger.info(f"Cleaning up documents older than {days_old} days")
@@ -199,9 +188,7 @@ class DataIngestionManager:
         # to query by metadata and delete matching documents
         # Implementation depends on specific vector store capabilities
 
-        logger.warning(
-            "Document cleanup not implemented - requires vector store enhancement"
-        )
+        logger.warning("Document cleanup not implemented - requires vector store enhancement")
 
 
 # Sample data for testing
@@ -384,9 +371,7 @@ SAMPLE_FAQ_ITEMS = [
 
 
 # Convenience functions
-async def ingest_sample_data(
-    embedding_manager: EmbeddingManager, tenant_id: str = "demo_restaurant"
-):
+async def ingest_sample_data(embedding_manager: EmbeddingManager, tenant_id: str = "demo_restaurant"):
     """Ingest sample data for testing and demonstration."""
 
     ingestion_manager = DataIngestionManager(embedding_manager)
@@ -394,19 +379,13 @@ async def ingest_sample_data(
     logger.info("Ingesting sample restaurant data...")
 
     # Ingest menu items
-    menu_doc_ids = await ingestion_manager.ingest_menu_items(
-        SAMPLE_MENU_ITEMS, tenant_id=tenant_id
-    )
+    menu_doc_ids = await ingestion_manager.ingest_menu_items(SAMPLE_MENU_ITEMS, tenant_id=tenant_id)
 
     # Ingest policies
-    policy_doc_ids = await ingestion_manager.ingest_policy_documents(
-        SAMPLE_POLICY_DOCUMENTS, tenant_id=tenant_id
-    )
+    policy_doc_ids = await ingestion_manager.ingest_policy_documents(SAMPLE_POLICY_DOCUMENTS, tenant_id=tenant_id)
 
     # Ingest FAQs
-    faq_doc_ids = await ingestion_manager.ingest_faq_items(
-        SAMPLE_FAQ_ITEMS, tenant_id=tenant_id
-    )
+    faq_doc_ids = await ingestion_manager.ingest_faq_items(SAMPLE_FAQ_ITEMS, tenant_id=tenant_id)
 
     total_docs = len(menu_doc_ids) + len(policy_doc_ids) + len(faq_doc_ids)
     logger.info(f"Successfully ingested {total_docs} total documents")

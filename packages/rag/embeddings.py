@@ -25,7 +25,6 @@ except ImportError:
 
 try:
     import asyncpg
-    import psycopg
 
     POSTGRES_AVAILABLE = True
 except ImportError:
@@ -43,36 +42,24 @@ class EmbeddingConfig(BaseModel):
         default="openai",
         description="Embedding provider: openai, sentence_transformers",
     )
-    model_name: str = Field(
-        default="text-embedding-3-small", description="Model name for embeddings"
-    )
+    model_name: str = Field(default="text-embedding-3-small", description="Model name for embeddings")
 
     # OpenAI settings
     api_key: Optional[str] = Field(default=None, description="OpenAI API key")
-    api_base: Optional[str] = Field(
-        default=None, description="Custom OpenAI API base URL"
-    )
+    api_base: Optional[str] = Field(default=None, description="Custom OpenAI API base URL")
 
     # Vector settings
     dimensions: int = Field(default=1536, description="Vector dimensions")
     normalize: bool = Field(default=True, description="Normalize vectors")
 
     # Database settings
-    database_url: Optional[str] = Field(
-        default=None, description="PostgreSQL connection URL"
-    )
-    table_name: str = Field(
-        default="embeddings", description="Table name for vector storage"
-    )
+    database_url: Optional[str] = Field(default=None, description="PostgreSQL connection URL")
+    table_name: str = Field(default="embeddings", description="Table name for vector storage")
 
     # Performance settings
-    batch_size: int = Field(
-        default=100, description="Batch size for embedding generation"
-    )
+    batch_size: int = Field(default=100, description="Batch size for embedding generation")
     max_retries: int = Field(default=3, description="Max retries for API calls")
-    request_timeout: float = Field(
-        default=30.0, description="Request timeout in seconds"
-    )
+    request_timeout: float = Field(default=30.0, description="Request timeout in seconds")
 
 
 class Document(BaseModel):
@@ -80,12 +67,8 @@ class Document(BaseModel):
 
     id: str = Field(..., description="Unique document ID")
     content: str = Field(..., description="Document content")
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Document metadata"
-    )
-    embedding: Optional[List[float]] = Field(
-        None, description="Document embedding vector"
-    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Document metadata")
+    embedding: Optional[List[float]] = Field(None, description="Document embedding vector")
     created_at: Optional[datetime] = Field(default_factory=datetime.now)
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
 
@@ -94,9 +77,7 @@ class SimilarityResult(BaseModel):
     """Result from similarity search."""
 
     document: Document = Field(..., description="Retrieved document")
-    score: float = Field(
-        ..., description="Similarity score (0-1, higher is more similar)"
-    )
+    score: float = Field(..., description="Similarity score (0-1, higher is more similar)")
     distance: float = Field(..., description="Vector distance (lower is more similar)")
 
 
@@ -131,9 +112,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
             response = await self.client.embeddings.create(
                 model=self.config.model_name,
                 input=texts,
-                dimensions=self.config.dimensions
-                if self.config.model_name.startswith("text-embedding-3")
-                else None,
+                dimensions=self.config.dimensions if self.config.model_name.startswith("text-embedding-3") else None,
             )
 
             embeddings = [embedding.embedding for embedding in response.data]
@@ -201,9 +180,7 @@ class VectorStore:
             raise ValueError("Database URL required for vector storage")
 
         try:
-            self.pool = await asyncpg.create_pool(
-                self.config.database_url, min_size=1, max_size=10
-            )
+            self.pool = await asyncpg.create_pool(self.config.database_url, min_size=1, max_size=10)
 
             # Create tables and indexes
             await self._create_schema()
@@ -347,9 +324,7 @@ class VectorStore:
             await self.initialize()
 
         async with self.pool.acquire() as conn:
-            await conn.execute(
-                f"DELETE FROM {self.config.table_name} WHERE id = ANY($1)", document_ids
-            )
+            await conn.execute(f"DELETE FROM {self.config.table_name} WHERE id = ANY($1)", document_ids)
 
         logger.info(f"Deleted {len(document_ids)} documents")
 
@@ -359,9 +334,7 @@ class VectorStore:
             await self.initialize()
 
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(
-                f"SELECT * FROM {self.config.table_name} WHERE id = $1", document_id
-            )
+            row = await conn.fetchrow(f"SELECT * FROM {self.config.table_name} WHERE id = $1", document_id)
 
         if row:
             return Document(
@@ -398,9 +371,7 @@ class EmbeddingManager:
         # Initialize vector store
         self.vector_store = VectorStore(config)
 
-    def generate_document_id(
-        self, content: str, metadata: Dict[str, Any] = None
-    ) -> str:
+    def generate_document_id(self, content: str, metadata: Dict[str, Any] = None) -> str:
         """Generate deterministic document ID from content and metadata."""
         content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
 
@@ -423,10 +394,7 @@ class EmbeddingManager:
             metadatas = [{}] * len(texts)
 
         if document_ids is None:
-            document_ids = [
-                self.generate_document_id(text, metadata)
-                for text, metadata in zip(texts, metadatas)
-            ]
+            document_ids = [self.generate_document_id(text, metadata) for text, metadata in zip(texts, metadatas)]
 
         # Generate embeddings
         embeddings = await self.provider.embed_texts(texts)
@@ -434,9 +402,7 @@ class EmbeddingManager:
         # Create document objects
         documents = [
             Document(id=doc_id, content=text, metadata=metadata, embedding=embedding)
-            for doc_id, text, metadata, embedding in zip(
-                document_ids, texts, metadatas, embeddings
-            )
+            for doc_id, text, metadata, embedding in zip(document_ids, texts, metadatas, embeddings)
         ]
 
         # Store in vector database
@@ -488,9 +454,7 @@ async def create_embedding_manager(
 ) -> EmbeddingManager:
     """Create and initialize embedding manager."""
 
-    config = EmbeddingConfig(
-        provider=provider, api_key=api_key, database_url=database_url, **kwargs
-    )
+    config = EmbeddingConfig(provider=provider, api_key=api_key, database_url=database_url, **kwargs)
 
     manager = EmbeddingManager(config)
     await manager.vector_store.initialize()

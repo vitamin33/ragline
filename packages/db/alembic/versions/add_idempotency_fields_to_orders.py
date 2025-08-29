@@ -20,18 +20,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     # Add idempotency_key and response_json columns to orders table
-    op.add_column(
-        "orders", sa.Column("idempotency_key", sa.String(length=255), nullable=True)
-    )
+    op.add_column("orders", sa.Column("idempotency_key", sa.String(length=255), nullable=True))
     op.add_column("orders", sa.Column("response_json", sa.JSON(), nullable=True))
 
     # Create index on idempotency_key for performance
     op.create_index("ix_orders_idempotency_key", "orders", ["idempotency_key"])
 
     # Create unique constraint on tenant_id + idempotency_key to prevent duplicates
-    op.create_unique_constraint(
-        "uq_orders_idempotency_key", "orders", ["tenant_id", "idempotency_key"]
-    )
+    op.create_unique_constraint("uq_orders_idempotency_key", "orders", ["tenant_id", "idempotency_key"])
 
 
 def downgrade() -> None:

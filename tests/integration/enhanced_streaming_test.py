@@ -66,9 +66,7 @@ async def test_enhanced_streaming():
 
         print("   ✅ Added 3 messages to conversation")
         print(f"   📊 Context messages: {len(context)}")
-        print(
-            f"   📊 Session stats: {stats['total_messages']} messages, {stats['total_tokens']} tokens"
-        )
+        print(f"   📊 Session stats: {stats['total_messages']} messages, {stats['total_tokens']} tokens")
         print(f"   🕐 Session start: {stats['session_start']}")
 
         # Test 3: Token Limit Manager
@@ -88,14 +86,10 @@ async def test_enhanced_streaming():
         print(f"   ✅ Token validation: {is_valid} ({token_count} tokens)")
 
         # Test truncation
-        long_messages = [
-            {"role": "user", "content": f"Message {i} with content"} for i in range(20)
-        ]
+        long_messages = [{"role": "user", "content": f"Message {i} with content"} for i in range(20)]
         truncated = token_manager.truncate_context(long_messages, target_tokens=50)
 
-        print(
-            f"   ✅ Context truncation: {len(long_messages)} → {len(truncated)} messages"
-        )
+        print(f"   ✅ Context truncation: {len(long_messages)} → {len(truncated)} messages")
 
         # Test response limiter
         limiter = token_manager.create_response_limiter(max_tokens=100)

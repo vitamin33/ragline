@@ -149,9 +149,7 @@ class RetrieveMenuTool(BaseTool):
                 user_preferences["favorite_category"] = category
 
             # Build search query
-            search_query = self._build_search_query(
-                query, category, dietary_restrictions
-            )
+            search_query = self._build_search_query(query, category, dietary_restrictions)
 
             # Perform RAG search
             retrieved_docs = await retrieve_menu_items(
@@ -242,9 +240,7 @@ class RetrieveMenuTool(BaseTool):
             }
 
             if not final_results:
-                raise ToolError(
-                    f"No menu items found matching '{search_query}' with specified filters"
-                )
+                raise ToolError(f"No menu items found matching '{search_query}' with specified filters")
 
             return result
 
@@ -253,9 +249,7 @@ class RetrieveMenuTool(BaseTool):
             print(f"RAG search failed, falling back to sample data: {e}")
             return await self._sample_data_search(kwargs)
 
-    def _build_search_query(
-        self, query: str, category: str, dietary_restrictions: List[str]
-    ) -> str:
+    def _build_search_query(self, query: str, category: str, dietary_restrictions: List[str]) -> str:
         """Build enhanced search query for RAG."""
 
         parts = []
@@ -330,9 +324,7 @@ class RetrieveMenuTool(BaseTool):
             # Dietary restrictions filter
             if dietary_restrictions:
                 item_dietary = item.get("dietary_info", [])
-                if not any(
-                    restriction in item_dietary for restriction in dietary_restrictions
-                ):
+                if not any(restriction in item_dietary for restriction in dietary_restrictions):
                     continue
 
             # Query filter (simple text search)

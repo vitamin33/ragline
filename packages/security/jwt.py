@@ -27,9 +27,7 @@ class JWTManager:
         access_token_expire_minutes: int = 30,
         refresh_token_expire_days: int = 7,
     ):
-        self.secret_key = secret_key or os.getenv(
-            "JWT_SECRET_KEY", "your-secret-key-change-in-production"
-        )
+        self.secret_key = secret_key or os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
         self.algorithm = algorithm
         self.access_token_expire_minutes = access_token_expire_minutes
         self.refresh_token_expire_days = refresh_token_expire_days
@@ -57,9 +55,7 @@ class JWTManager:
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(
-                minutes=self.access_token_expire_minutes
-            )
+            expire = datetime.now(timezone.utc) + timedelta(minutes=self.access_token_expire_minutes)
 
         now = datetime.now(timezone.utc)
 
@@ -77,16 +73,12 @@ class JWTManager:
         encoded_jwt = jwt.encode(payload, self.secret_key, algorithm=self.algorithm)
         return encoded_jwt
 
-    def create_refresh_token(
-        self, user_id: int, tenant_id: int, expires_delta: Optional[timedelta] = None
-    ) -> str:
+    def create_refresh_token(self, user_id: int, tenant_id: int, expires_delta: Optional[timedelta] = None) -> str:
         """Create a new refresh token."""
         if expires_delta:
             expire = datetime.now(timezone.utc) + expires_delta
         else:
-            expire = datetime.now(timezone.utc) + timedelta(
-                days=self.refresh_token_expire_days
-            )
+            expire = datetime.now(timezone.utc) + timedelta(days=self.refresh_token_expire_days)
 
         now = datetime.now(timezone.utc)
 
@@ -142,9 +134,7 @@ class JWTManager:
     def verify_refresh_token(self, refresh_token: str) -> Optional[Dict[str, Any]]:
         """Verify a refresh token and return basic user info."""
         try:
-            payload = jwt.decode(
-                refresh_token, self.secret_key, algorithms=[self.algorithm]
-            )
+            payload = jwt.decode(refresh_token, self.secret_key, algorithms=[self.algorithm])
 
             # Check if token type is refresh
             token_type = payload.get("type")

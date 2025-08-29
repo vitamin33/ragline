@@ -35,15 +35,11 @@ def test_order_idempotency_without_database():
             ]
         }
 
-        response = requests.post(
-            f"{base_url}/v1/orders/", json=order_data, headers=headers, timeout=5
-        )
+        response = requests.post(f"{base_url}/v1/orders/", json=order_data, headers=headers, timeout=5)
 
         # Should fail at database but with proper validation
         if response.status_code in [400, 500]:
-            print(
-                "✅ Order creation endpoint accessible (failed at validation/database as expected)"
-            )
+            print("✅ Order creation endpoint accessible (failed at validation/database as expected)")
         elif response.status_code == 401:
             print("❌ Authentication failed")
             return False
@@ -71,9 +67,7 @@ def test_order_idempotency_without_database():
 
         # Should fail at database but accept idempotency key
         if response.status_code in [400, 500]:
-            print(
-                "✅ Idempotency-Key header accepted (failed at validation/database as expected)"
-            )
+            print("✅ Idempotency-Key header accepted (failed at validation/database as expected)")
         else:
             print(f"❌ Unexpected status with idempotency key: {response.status_code}")
             return False
@@ -110,9 +104,7 @@ def test_order_idempotency_without_database():
     try:
         empty_order_data = {"items": []}
 
-        response = requests.post(
-            f"{base_url}/v1/orders/", json=empty_order_data, headers=headers, timeout=5
-        )
+        response = requests.post(f"{base_url}/v1/orders/", json=empty_order_data, headers=headers, timeout=5)
 
         # Should reject empty orders
         if response.status_code in [400, 422]:
@@ -139,9 +131,7 @@ def test_order_idempotency_without_database():
         if response.status_code in [401, 403]:
             print("✅ Unauthenticated order creation properly blocked")
         else:
-            print(
-                f"❌ Should block unauthenticated access, got: {response.status_code}"
-            )
+            print(f"❌ Should block unauthenticated access, got: {response.status_code}")
             return False
 
     except Exception as e:
@@ -213,9 +203,7 @@ def run_order_idempotency_tests():
         print(f"✅ Server running (status: {response.status_code})")
     except Exception as e:
         print(f"❌ Server not accessible: {e}")
-        print(
-            "Please start server: source .venv/bin/activate && cd services/api && python main.py"
-        )
+        print("Please start server: source .venv/bin/activate && cd services/api && python main.py")
         return False
 
     test_functions = [

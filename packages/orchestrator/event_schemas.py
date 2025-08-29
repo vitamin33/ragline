@@ -104,9 +104,7 @@ class OrderV1Event(BaseModel):
                 OrderStatus.CONFIRMED,
                 OrderStatus.FAILED,
             ]:
-                raise ValueError(
-                    f"Invalid status '{self.status}' for event '{self.event}'"
-                )
+                raise ValueError(f"Invalid status '{self.status}' for event '{self.event}'")
 
         return self
 
@@ -152,22 +150,12 @@ class EnrichedOrderEvent(OrderV1Event):
     """
 
     # Additional internal fields (not in external contract)
-    source_service: Optional[str] = Field(
-        None, description="Service that generated the event"
-    )
-    correlation_id: Optional[str] = Field(
-        None, description="Correlation ID for tracing"
-    )
-    causation_id: Optional[str] = Field(
-        None, description="ID of event that caused this event"
-    )
-    user_id: Optional[uuid.UUID] = Field(
-        None, description="User who triggered the event"
-    )
+    source_service: Optional[str] = Field(None, description="Service that generated the event")
+    correlation_id: Optional[str] = Field(None, description="Correlation ID for tracing")
+    causation_id: Optional[str] = Field(None, description="ID of event that caused this event")
+    user_id: Optional[uuid.UUID] = Field(None, description="User who triggered the event")
     retry_count: int = Field(0, description="Number of retry attempts")
-    processed_at: Optional[datetime] = Field(
-        None, description="When event was processed"
-    )
+    processed_at: Optional[datetime] = Field(None, description="When event was processed")
 
     def to_external_event(self) -> OrderV1Event:
         """Convert to external contract format (remove internal fields)"""
@@ -200,9 +188,7 @@ class BaseEvent(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Optional metadata
-    source_service: Optional[str] = Field(
-        None, description="Service that generated event"
-    )
+    source_service: Optional[str] = Field(None, description="Service that generated event")
     correlation_id: Optional[str] = Field(None, description="Correlation ID")
     causation_id: Optional[str] = Field(None, description="Causation ID")
     user_id: Optional[str] = Field(None, description="User ID")
@@ -515,9 +501,7 @@ def validate_event_structure(event_dict: Dict[str, Any]) -> Dict[str, Any]:
 
         for field in required_fields:
             if field not in event_dict:
-                validation_result["warnings"].append(
-                    f"Missing recommended field: {field}"
-                )
+                validation_result["warnings"].append(f"Missing recommended field: {field}")
 
     except Exception as e:
         validation_result["errors"].append(f"Validation error: {str(e)}")

@@ -188,30 +188,22 @@ class StreamProducer:
             return StreamTopic.USERS
         elif any(keyword in event_lower for keyword in ["product", "catalog", "item"]):
             return StreamTopic.PRODUCTS
-        elif any(
-            keyword in event_lower for keyword in ["notification", "alert", "message"]
-        ):
+        elif any(keyword in event_lower for keyword in ["notification", "alert", "message"]):
             return StreamTopic.NOTIFICATIONS
         elif any(keyword in event_lower for keyword in ["payment", "charge", "refund"]):
             return StreamTopic.PAYMENTS
-        elif any(
-            keyword in event_lower for keyword in ["inventory", "stock", "quantity"]
-        ):
+        elif any(keyword in event_lower for keyword in ["inventory", "stock", "quantity"]):
             return StreamTopic.INVENTORY
 
         # Default to orders stream
-        logger.warning(
-            f"No specific stream found for {aggregate_type}.{event_type}, defaulting to orders"
-        )
+        logger.warning(f"No specific stream found for {aggregate_type}.{event_type}, defaulting to orders")
         return StreamTopic.ORDERS
 
     async def publish_event(self, event: StreamEvent) -> str:
         """Publish single event to appropriate stream"""
         try:
             # Get stream topic
-            topic = self.get_stream_topic(
-                event.metadata.aggregate_type, event.metadata.event_type
-            )
+            topic = self.get_stream_topic(event.metadata.aggregate_type, event.metadata.event_type)
 
             # Get stream configuration
             stream_config = self.stream_configs[topic]
@@ -229,13 +221,9 @@ class StreamProducer:
 
             # Update metrics
             self.events_published += 1
-            self.events_by_topic[topic.value] = (
-                self.events_by_topic.get(topic.value, 0) + 1
-            )
+            self.events_by_topic[topic.value] = self.events_by_topic.get(topic.value, 0) + 1
 
-            logger.info(
-                f"Published event {event.metadata.event_id} to {topic.value} (message_id: {message_id})"
-            )
+            logger.info(f"Published event {event.metadata.event_id} to {topic.value} (message_id: {message_id})")
             return message_id
 
         except Exception as e:
@@ -257,9 +245,7 @@ class StreamProducer:
                 message_ids.append(None)
 
         successful_publishes = sum(1 for mid in message_ids if mid is not None)
-        logger.info(
-            f"Batch publish completed: {successful_publishes}/{len(events)} events published"
-        )
+        logger.info(f"Batch publish completed: {successful_publishes}/{len(events)} events published")
 
         return message_ids
 
@@ -340,9 +326,7 @@ class StreamProducer:
                 await client.create_consumer_group(stream_config, mkstream=True)
                 logger.info(f"Created consumer group for {topic.value}")
             except Exception as e:
-                logger.warning(
-                    f"Failed to create consumer group for {topic.value}: {e}"
-                )
+                logger.warning(f"Failed to create consumer group for {topic.value}: {e}")
 
     async def get_stream_info(self, topic: StreamTopic) -> Dict[str, Any]:
         """Get information about a specific stream"""
@@ -372,11 +356,7 @@ class StreamProducer:
         return {
             "events_published": self.events_published,
             "events_failed": self.events_failed,
-            "success_rate": (
-                self.events_published
-                / max(1, self.events_published + self.events_failed)
-                * 100
-            ),
+            "success_rate": (self.events_published / max(1, self.events_published + self.events_failed) * 100),
             "events_by_topic": self.events_by_topic,
             "configured_topics": list(self.stream_configs.keys()),
             "redis_client_metrics": client_metrics,

@@ -21,37 +21,21 @@ class RetrievalConfig(BaseModel):
     """Configuration for RAG retrieval system."""
 
     # Search parameters
-    max_results: int = Field(
-        default=10, description="Maximum number of results to retrieve"
-    )
-    similarity_threshold: float = Field(
-        default=0.5, description="Minimum similarity score"
-    )
+    max_results: int = Field(default=10, description="Maximum number of results to retrieve")
+    similarity_threshold: float = Field(default=0.5, description="Minimum similarity score")
 
     # Re-ranking parameters
-    enable_reranking: bool = Field(
-        default=True, description="Enable business rule re-ranking"
-    )
-    boost_recent: bool = Field(
-        default=True, description="Boost recently updated content"
-    )
+    enable_reranking: bool = Field(default=True, description="Enable business rule re-ranking")
+    boost_recent: bool = Field(default=True, description="Boost recently updated content")
     boost_popular: bool = Field(default=True, description="Boost popular items")
 
     # Context parameters
-    context_window_tokens: int = Field(
-        default=2000, description="Maximum context tokens for LLM"
-    )
-    include_metadata: bool = Field(
-        default=True, description="Include metadata in context"
-    )
+    context_window_tokens: int = Field(default=2000, description="Maximum context tokens for LLM")
+    include_metadata: bool = Field(default=True, description="Include metadata in context")
 
     # Filtering parameters
-    respect_availability: bool = Field(
-        default=True, description="Filter out unavailable items"
-    )
-    respect_business_hours: bool = Field(
-        default=True, description="Consider business hours"
-    )
+    respect_availability: bool = Field(default=True, description="Filter out unavailable items")
+    respect_business_hours: bool = Field(default=True, description="Consider business hours")
 
 
 @dataclass
@@ -165,9 +149,7 @@ class RAGRetriever:
 
         # Add document type filter
         if document_types:
-            filters["document_type"] = (
-                document_types[0] if len(document_types) == 1 else document_types
-            )
+            filters["document_type"] = document_types[0] if len(document_types) == 1 else document_types
 
         # Add tenant filter
         if context and context.tenant_id:
@@ -208,9 +190,7 @@ class RAGRetriever:
 
                 # If user has dietary restrictions, ensure item meets them
                 if user_dietary:
-                    if not any(
-                        restriction in item_dietary for restriction in user_dietary
-                    ):
+                    if not any(restriction in item_dietary for restriction in user_dietary):
                         # Only filter if it's a menu item and conflicts with dietary needs
                         if metadata.get("document_type") == "menu_item":
                             continue
@@ -219,9 +199,7 @@ class RAGRetriever:
 
         return filtered_results
 
-    def _is_within_business_hours(
-        self, metadata: Dict[str, Any], current_time: datetime
-    ) -> bool:
+    def _is_within_business_hours(self, metadata: Dict[str, Any], current_time: datetime) -> bool:
         """Check if current time is within business hours."""
 
         # If no business hours specified, assume always available
@@ -302,7 +280,7 @@ class RAGRetriever:
         if isinstance(updated_at, str):
             try:
                 updated_at = datetime.fromisoformat(updated_at)
-            except:
+            except ValueError:
                 return 0.0
 
         # Boost content updated in last 7 days
@@ -332,9 +310,7 @@ class RAGRetriever:
 
         return 0.0
 
-    def _calculate_preference_boost(
-        self, metadata: Dict[str, Any], context: RetrievalContext
-    ) -> float:
+    def _calculate_preference_boost(self, metadata: Dict[str, Any], context: RetrievalContext) -> float:
         """Calculate boost based on user preferences and history."""
 
         boost = 0.0
@@ -387,9 +363,7 @@ class RAGRetriever:
 
         return min(0.15, boost)  # Cap keyword boost
 
-    def _get_retrieval_reason(
-        self, result: SimilarityResult, query: str, context: Optional[RetrievalContext]
-    ) -> str:
+    def _get_retrieval_reason(self, result: SimilarityResult, query: str, context: Optional[RetrievalContext]) -> str:
         """Generate explanation for why document was retrieved."""
 
         reasons = []
@@ -434,9 +408,7 @@ class RAGRetriever:
 
         return ", ".join(reasons) if reasons else "general relevance"
 
-    def format_context_for_llm(
-        self, retrieved_docs: List[RetrievedDocument], query: str
-    ) -> str:
+    def format_context_for_llm(self, retrieved_docs: List[RetrievedDocument], query: str) -> str:
         """Format retrieved documents as context for LLM."""
 
         if not retrieved_docs:
@@ -457,7 +429,9 @@ class RAGRetriever:
                     doc_content += f"\nMetadata: {metadata_str}"
 
             # Add relevance info
-            doc_content += f"\n(Relevance: {retrieved_doc.similarity_score:.2f}, Reason: {retrieved_doc.retrieval_reason})"
+            doc_content += (
+                f"\n(Relevance: {retrieved_doc.similarity_score:.2f}, Reason: {retrieved_doc.retrieval_reason})"
+            )
 
             context_parts.append(doc_content)
 
@@ -465,9 +439,7 @@ class RAGRetriever:
 
         # Truncate if too long
         if self._estimate_tokens(full_context) > self.config.context_window_tokens:
-            full_context = self._truncate_context(
-                full_context, self.config.context_window_tokens
-            )
+            full_context = self._truncate_context(full_context, self.config.context_window_tokens)
 
         return full_context
 
@@ -535,9 +507,7 @@ async def retrieve_menu_items(
 
     context = RetrievalContext(user_preferences=user_preferences)
 
-    return await retriever.retrieve(
-        query=query, context=context, document_types=["menu_item"]
-    )
+    return await retriever.retrieve(query=query, context=context, document_types=["menu_item"])
 
 
 async def retrieve_policies(
@@ -553,6 +523,4 @@ async def retrieve_policies(
 
     filters = {"section": section} if section else None
 
-    return await retriever.retrieve(
-        query=query, filters=filters, document_types=["policy"]
-    )
+    return await retriever.retrieve(query=query, filters=filters, document_types=["policy"])
