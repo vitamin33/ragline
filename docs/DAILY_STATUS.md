@@ -133,7 +133,7 @@
 - [x] DLQ metrics (event counts, retry attempts, manual interventions)
 - [x] Circuit breaker metrics (state, failures, response times)
 - [x] Create metrics server and Celery tasks for collection
-- [ ] Configure Grafana dashboards (optional - not critical path)
+- [x] Configure Grafana dashboards and Prometheus scraping ✅ COMPLETED
 
 ### Integration Points
 
