@@ -40,7 +40,16 @@ ragline/
 │ │ │ ├── products.py # Product CRUD
 │ │ │ ├── orders.py # Order management
 │ │ │ └── events.py # SSE/WebSocket endpoints
-│ │ └── dependencies/ # FastAPI dependencies
+│ │ ├── dependencies/ # FastAPI dependencies
+│ │ └── static/ # Test UI (Agent A)
+│ │   ├── index.html # Main test interface
+│ │   ├── chat.html # Chat testing UI
+│ │   ├── voice.html # Voice testing UI (Days 17-19)
+│ │   ├── admin.html # System monitoring UI
+│ │   └── js/
+│ │     ├── api-client.js # API interaction
+│ │     ├── websocket.js # Real-time features
+│ │     └── voice-client.js # Voice features
 │ │
 │ ├── worker/ # Background workers (Agent B)
 │ │ ├── celery_app.py # Celery configuration
@@ -148,6 +157,27 @@ ragline/
   - RAG over product catalog
   - Local model support via OPENAI_API_BASE
 
+### 4. Voice Service (Port 8002) - *Future Enhancement*
+
+- **Owner**: Agent C (Extension)
+- **Tech**: FastAPI, OpenAI Whisper, WebRTC, Opus codec
+- **Responsibilities**:
+  - Speech-to-text processing (Whisper integration)
+  - Text-to-speech synthesis (ElevenLabs/Local TTS)
+  - Real-time audio streaming via WebSocket
+  - Voice activity detection and audio enhancement
+  - Multi-language support and emotional synthesis
+
+### 5. API Gateway (Port 8080) - *Future Enhancement*
+
+- **Owner**: Shared (All Agents)
+- **Tech**: FastAPI, intelligent load balancing
+- **Responsibilities**:
+  - Unified API entry point
+  - Request routing and feature flags
+  - Centralized authentication and rate limiting
+  - Circuit breaker coordination
+
 ## Data Flow Patterns
 
 ### 1. Synchronous Request Flow
@@ -161,6 +191,18 @@ API → Outbox → Worker → Redis Stream → Notifier → SSE/WS → Client
 ### 3. LLM Tool Calling Flow
 
 Client → LLM Service → Tool Execution → RAG Retrieval → Response Stream
+
+### 4. Voice Interaction Flow - *Future Enhancement*
+
+Client → Voice Service (STT) → LLM Service → Tool Execution → Voice Service (TTS) → Audio Stream → Client
+
+### 5. Advanced Function Calling Flow - *Future Enhancement*
+
+Client → LLM Service → Dynamic Tool Registry → External APIs → Caching Layer → Response Stream
+
+### 6. Prompt Governance Flow - *Future Enhancement*
+
+Prompt Request → Version Manager → A/B Testing → Validation → Git Repository → LLM Service
 
 ## Database Schema
 
@@ -238,13 +280,36 @@ ragline:dlq:orders
 
 All metrics use `ragline_` prefix:
 
+#### Core Platform Metrics
 - `ragline_api_request_duration_seconds`
 - `ragline_cache_hit_ratio`
 - `ragline_worker_task_duration_seconds`
 - `ragline_outbox_lag_seconds`
 - `ragline_stream_lag_seconds`
-- `ragline_llm_first_token_ms`
-- `ragline_llm_tokens_total`
+
+#### LLM Performance Metrics - *Enhanced*
+- `ragline_llm_first_token_ms` - Time to first token (TTFT)
+- `ragline_llm_tokens_total` - Total token count
+- `ragline_llm_tokens_per_second` - Token throughput
+- `ragline_llm_request_cost_usd` - Cost per request tracking
+- `ragline_llm_p95_latency_seconds` - 95th percentile latency
+
+#### Function Calling Metrics - *Future Enhancement*
+- `ragline_tool_execution_duration_seconds`
+- `ragline_tool_success_rate`
+- `ragline_tool_cache_hit_ratio`
+- `ragline_rag_retrieval_latency_ms`
+
+#### Voice Service Metrics - *Future Enhancement*
+- `ragline_voice_stt_latency_ms`
+- `ragline_voice_tts_latency_ms`
+- `ragline_voice_session_duration_seconds`
+- `ragline_voice_audio_quality_score`
+
+#### Prompt Governance Metrics - *Future Enhancement*
+- `ragline_prompt_version_usage_total`
+- `ragline_prompt_ab_test_conversion_rate`
+- `ragline_prompt_validation_failures_total`
 
 ### Tracing (OpenTelemetry)
 
@@ -272,11 +337,28 @@ All metrics use `ragline_` prefix:
 - Stream lag: < 100ms p95
 - DLQ recovery: > 99%
 
-### LLM Service
+### LLM Service - *Enhanced Targets*
 
-- First token: < 300ms p50
-- Token generation: > 50 tokens/sec
-- RAG retrieval: < 50ms
+- **TTFT (Time To First Token)**: < 300ms p50, < 500ms p95
+- **Token Throughput**: > 50 tokens/sec sustained
+- **Cost Per Request**: $0.001-0.01 range optimization
+- **Function Call Success Rate**: > 99% reliability
+- **RAG Retrieval**: < 50ms p95 similarity search
+
+### Voice Service - *Future Targets*
+
+- **Speech-to-Text Latency**: < 200ms p95
+- **Text-to-Speech Latency**: < 400ms p95
+- **End-to-End Voice**: < 800ms p95 (STT→LLM→TTS)
+- **Audio Quality Score**: > 4.0/5.0 MOS rating
+- **Concurrent Voice Sessions**: 100+ simultaneous
+
+### Advanced Function Calling - *Future Targets*
+
+- **Tool Execution**: < 200ms p95 (cached)
+- **External API Integration**: < 500ms p95
+- **Semantic Search Accuracy**: > 0.85 relevance score
+- **Content Validation**: < 100ms p95 processing
 
 ## Deployment
 

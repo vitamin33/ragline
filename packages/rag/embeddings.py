@@ -7,13 +7,23 @@ Supports OpenAI embeddings and SentenceTransformers with pgvector backend.
 
 import asyncio
 import hashlib
+import json
 import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
+
+# Optional Redis caching
+try:
+    from packages.cache.redis_cache import RedisCache
+
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
 # Optional dependencies
 try:
@@ -60,6 +70,11 @@ class EmbeddingConfig(BaseModel):
     batch_size: int = Field(default=100, description="Batch size for embedding generation")
     max_retries: int = Field(default=3, description="Max retries for API calls")
     request_timeout: float = Field(default=30.0, description="Request timeout in seconds")
+
+    # Caching settings
+    enable_cache: bool = Field(default=True, description="Enable Redis caching for embeddings and queries")
+    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds (1 hour default)")
+    redis_url: Optional[str] = Field(default=None, description="Redis connection URL")
 
 
 class Document(BaseModel):
@@ -173,6 +188,14 @@ class VectorStore:
 
         self.config = config
         self.pool: Optional[asyncpg.Pool] = None
+        self._prepared_statements: Dict[str, str] = {}
+
+        # Initialize Redis cache if available and enabled
+        self.cache: Optional[RedisCache] = None
+        if config.enable_cache and REDIS_AVAILABLE:
+            self.cache = RedisCache(
+                redis_url=config.redis_url, default_ttl=config.cache_ttl, key_prefix="ragline_embeddings"
+            )
 
     async def initialize(self):
         """Initialize database connection and create tables."""
@@ -182,8 +205,22 @@ class VectorStore:
         try:
             self.pool = await asyncpg.create_pool(self.config.database_url, min_size=1, max_size=10)
 
+            # Register pgvector types
+            async with self.pool.acquire() as conn:
+                await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+                # Register vector type with asyncpg
+                try:
+                    import pgvector.asyncpg
+
+                    await pgvector.asyncpg.register_vector(conn)
+                except ImportError:
+                    logger.warning("pgvector.asyncpg not available, using manual vector handling")
+
             # Create tables and indexes
             await self._create_schema()
+
+            # Prepare optimized SQL statements
+            await self._prepare_statements()
 
             logger.info("Vector store initialized successfully")
 
@@ -227,6 +264,40 @@ class VectorStore:
             """
             await conn.execute(metadata_index_sql)
 
+    async def _prepare_statements(self):
+        """Prepare optimized SQL statements for better performance."""
+        async with self.pool.acquire() as conn:
+            # Prepare upsert statement
+            self._prepared_statements["upsert"] = f"""
+                INSERT INTO {self.config.table_name}
+                (id, content, metadata, embedding, updated_at)
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    content = EXCLUDED.content,
+                    metadata = EXCLUDED.metadata,
+                    embedding = EXCLUDED.embedding,
+                    updated_at = NOW()
+            """
+
+            # Prepare similarity search base query
+            self._prepared_statements["similarity_search_base"] = f"""
+                SELECT
+                    id, content, metadata, embedding, created_at, updated_at,
+                    1 - (embedding <=> $1) as similarity,
+                    embedding <=> $1 as distance
+                FROM {self.config.table_name}
+            """
+
+            # Prepare delete statement
+            self._prepared_statements["delete"] = f"""
+                DELETE FROM {self.config.table_name} WHERE id = ANY($1)
+            """
+
+            # Prepare single document lookup
+            self._prepared_statements["get_by_id"] = f"""
+                SELECT * FROM {self.config.table_name} WHERE id = $1
+            """
+
     async def upsert_documents(self, documents: List[Document]):
         """Insert or update documents with embeddings."""
         if not self.pool:
@@ -234,24 +305,38 @@ class VectorStore:
 
         async with self.pool.acquire() as conn:
             for doc in documents:
+                # Handle metadata JSON serialization
+                if isinstance(doc.metadata, dict):
+                    metadata_json = json.dumps(doc.metadata)
+                elif doc.metadata is None:
+                    metadata_json = "{}"
+                else:
+                    metadata_json = str(doc.metadata)
+
                 await conn.execute(
-                    f"""
-                    INSERT INTO {self.config.table_name}
-                    (id, content, metadata, embedding, updated_at)
-                    VALUES ($1, $2, $3, $4, NOW())
-                    ON CONFLICT (id) DO UPDATE SET
-                        content = EXCLUDED.content,
-                        metadata = EXCLUDED.metadata,
-                        embedding = EXCLUDED.embedding,
-                        updated_at = NOW()
-                    """,
+                    self._prepared_statements["upsert"],
                     doc.id,
                     doc.content,
-                    doc.metadata,
-                    doc.embedding,
+                    metadata_json,
+                    doc.embedding,  # Pass list directly - asyncpg handles pgvector conversion
                 )
 
         logger.info(f"Upserted {len(documents)} documents")
+
+    def _build_cache_key(
+        self, query_embedding: List[float], limit: int, threshold: float, filters: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Build cache key for similarity search."""
+        # Create a hash of search parameters for caching
+        params = {
+            "embedding_hash": hashlib.sha256(str(query_embedding).encode()).hexdigest()[:16],
+            "limit": limit,
+            "threshold": threshold,
+            "filters": filters or {},
+        }
+        params_str = json.dumps(params, sort_keys=True)
+        cache_hash = hashlib.sha256(params_str.encode()).hexdigest()[:12]
+        return f"similarity_search:{cache_hash}"
 
     async def similarity_search(
         self,
@@ -260,10 +345,30 @@ class VectorStore:
         threshold: float = 0.5,
         filters: Optional[Dict[str, Any]] = None,
     ) -> List[SimilarityResult]:
-        """Perform similarity search using cosine similarity."""
+        """Perform similarity search using cosine similarity with caching."""
         if not self.pool:
             await self.initialize()
 
+        # Try cache first if enabled
+        cache_key = None
+        if self.cache:
+            cache_key = self._build_cache_key(query_embedding, limit, threshold, filters)
+            try:
+                cache_client = await self.cache.get_client()
+                cached_result = await cache_client.get(f"ragline_embeddings:search:{cache_key}")
+                if cached_result:
+                    # Deserialize cached results
+                    cached_data = json.loads(cached_result)
+                    results = []
+                    for item in cached_data:
+                        doc = Document(**item["document"])
+                        results.append(SimilarityResult(document=doc, score=item["score"], distance=item["distance"]))
+                    logger.info(f"Cache hit for similarity search: {len(results)} results")
+                    return results
+            except Exception as e:
+                logger.warning(f"Cache lookup failed: {e}")
+
+        # asyncpg handles pgvector conversion automatically
         # Build WHERE clause for metadata filtering
         where_clause = "WHERE 1=1"
         params = [query_embedding, limit]
@@ -276,23 +381,15 @@ class VectorStore:
                 param_idx += 2
 
         # Add similarity threshold
-        where_clause += f" AND (1 - (embedding <=> ${1})) >= ${param_idx}"
+        where_clause += f" AND (1 - (embedding <=> $1)) >= ${param_idx}"
         params.append(threshold)
 
+        # Build optimized query using prepared statement base
         query_sql = f"""
-        SELECT
-            id,
-            content,
-            metadata,
-            embedding,
-            created_at,
-            updated_at,
-            1 - (embedding <=> $1) as similarity,
-            embedding <=> $1 as distance
-        FROM {self.config.table_name}
+        {self._prepared_statements["similarity_search_base"]}
         {where_clause}
         ORDER BY embedding <=> $1
-        LIMIT $2;
+        LIMIT $2
         """
 
         async with self.pool.acquire() as conn:
@@ -300,11 +397,18 @@ class VectorStore:
 
         results = []
         for row in rows:
+            # Parse metadata if it's a string
+            metadata = row["metadata"]
+            if isinstance(metadata, str):
+                metadata = json.loads(metadata)
+            elif metadata is None:
+                metadata = {}
+
             doc = Document(
                 id=row["id"],
                 content=row["content"],
-                metadata=row["metadata"],
-                embedding=list(row["embedding"]) if row["embedding"] else None,
+                metadata=metadata,
+                embedding=list(row["embedding"]) if row["embedding"] is not None else None,
                 created_at=row["created_at"],
                 updated_at=row["updated_at"],
             )
@@ -316,6 +420,24 @@ class VectorStore:
             )
             results.append(result)
 
+        # Cache results if caching is enabled
+        if self.cache and cache_key and results:
+            try:
+                # Serialize results for caching
+                cache_data = []
+                for result in results:
+                    cache_data.append(
+                        {"document": result.document.dict(), "score": result.score, "distance": result.distance}
+                    )
+
+                cache_client = await self.cache.get_client()
+                await cache_client.setex(
+                    f"ragline_embeddings:search:{cache_key}", self.config.cache_ttl, json.dumps(cache_data)
+                )
+                logger.info(f"Cached {len(results)} search results for {self.config.cache_ttl}s")
+            except Exception as e:
+                logger.warning(f"Cache store failed: {e}")
+
         return results
 
     async def delete_documents(self, document_ids: List[str]):
@@ -324,7 +446,7 @@ class VectorStore:
             await self.initialize()
 
         async with self.pool.acquire() as conn:
-            await conn.execute(f"DELETE FROM {self.config.table_name} WHERE id = ANY($1)", document_ids)
+            await conn.execute(self._prepared_statements["delete"], document_ids)
 
         logger.info(f"Deleted {len(document_ids)} documents")
 
@@ -334,7 +456,7 @@ class VectorStore:
             await self.initialize()
 
         async with self.pool.acquire() as conn:
-            row = await conn.fetchrow(f"SELECT * FROM {self.config.table_name} WHERE id = $1", document_id)
+            row = await conn.fetchrow(self._prepared_statements["get_by_id"], document_id)
 
         if row:
             return Document(
