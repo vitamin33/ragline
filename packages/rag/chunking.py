@@ -50,6 +50,39 @@ class ChunkingConfig(BaseModel):
     include_document_metadata: bool = Field(default=True, description="Include document metadata in chunks")
     include_position_metadata: bool = Field(default=True, description="Include position metadata")
 
+    @classmethod
+    def for_menu_items(cls) -> "ChunkingConfig":
+        """Optimized config for menu items - single item per chunk."""
+        return cls(
+            chunk_size=256,  # Smaller chunks for individual menu items
+            overlap_size=20,  # Minimal overlap needed
+            min_chunk_size=30,
+            preserve_sentences=True,
+            preserve_paragraphs=False,  # Menu items are typically short
+        )
+
+    @classmethod
+    def for_policies(cls) -> "ChunkingConfig":
+        """Optimized config for policy documents - balanced chunking."""
+        return cls(
+            chunk_size=384,  # Medium chunks for policy sections
+            overlap_size=40,  # Moderate overlap for context
+            min_chunk_size=80,
+            preserve_sentences=True,
+            preserve_paragraphs=True,
+        )
+
+    @classmethod
+    def for_faqs(cls) -> "ChunkingConfig":
+        """Optimized config for FAQ items - Q&A pairs intact."""
+        return cls(
+            chunk_size=200,  # Small chunks to keep Q&A pairs together
+            overlap_size=10,  # Minimal overlap for FAQ items
+            min_chunk_size=40,
+            preserve_sentences=True,
+            preserve_paragraphs=True,
+        )
+
 
 class DocumentChunker(ABC):
     """Abstract base class for document chunkers."""

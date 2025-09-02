@@ -119,6 +119,18 @@ class RetrieveMenuTool(BaseTool):
         max_price = kwargs.get("max_price")
         limit = kwargs.get("limit", 10)
 
+        # Try database search first, even if RAG imports failed
+        database_url = os.getenv("DATABASE_URL") or "postgresql://postgres:password@localhost:5432/ragline"
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        if not api_key:
+            # Try database with mock embeddings for demo
+            try:
+                return await self._database_search_with_mock_embeddings(kwargs, database_url)
+            except Exception as e:
+                print(f"Database search failed: {e}")
+                pass  # Continue to fallback
+
         # If RAG not available, fall back to mock data
         if not RAG_AVAILABLE:
             return await self._fallback_mock_search(kwargs)
@@ -128,9 +140,13 @@ class RetrieveMenuTool(BaseTool):
             database_url = os.getenv("DATABASE_URL")
             api_key = os.getenv("OPENAI_API_KEY")
 
+            # Set default database URL if not provided
+            if not database_url:
+                database_url = "postgresql://postgres:password@localhost:5432/ragline"
+
             if not api_key:
-                # Use sample data search if no API key
-                return await self._sample_data_search(kwargs)
+                # Use database with mock embeddings for demo
+                return await self._database_search_with_mock_embeddings(kwargs, database_url)
 
             if not database_url:
                 # Use sample data search if no database
@@ -265,6 +281,118 @@ class RetrieveMenuTool(BaseTool):
             parts.append(f"dietary options: {dietary_text}")
 
         return " ".join(parts) if parts else "menu items"
+
+    async def _database_search_with_mock_embeddings(self, kwargs: Dict[str, Any], database_url: str) -> Dict[str, Any]:
+        """Search using database with mock embeddings for demo."""
+        import hashlib
+        import json
+        import time
+
+        from packages.rag.embeddings import EmbeddingConfig, VectorStore
+
+        query = kwargs.get("query", "")
+        category = kwargs.get("category")
+        dietary_restrictions = kwargs.get("dietary_restrictions", [])
+        max_price = kwargs.get("max_price")
+        limit = kwargs.get("limit", 10)
+
+        start_time = time.time()
+
+        try:
+            # Use VectorStore which handles pgvector registration
+            config = EmbeddingConfig(
+                database_url=database_url,
+                table_name="embeddings",
+                embedding_dimension=1536,
+            )
+
+            vector_store = VectorStore(config)
+            await vector_store.initialize()
+
+            # Generate mock query embedding
+            def generate_mock_embedding(text: str) -> list:
+                text_hash = hashlib.md5(text.encode()).hexdigest()
+                embedding = []
+                for i in range(1536):
+                    char = text_hash[i % len(text_hash)]
+                    value = (ord(char) - ord("0")) / 15.0 if char.isdigit() else (ord(char.lower()) - ord("a")) / 25.0
+                    embedding.append(value * 0.1)
+                return embedding
+
+            query_embedding = generate_mock_embedding(query)
+
+            # Build metadata filters
+            filters = {"document_type": "menu_item"}
+            if category:
+                filters["category"] = category
+
+            # Search using VectorStore
+            search_results = await vector_store.similarity_search(
+                query_embedding=query_embedding,
+                limit=limit * 2,  # Get more for additional filtering
+                threshold=0.1,  # Lower threshold for demo
+                filters=filters,
+            )
+
+            # Apply additional filters and format results
+            results = []
+            for search_result in search_results:
+                doc = search_result.document
+                metadata = doc.metadata
+
+                # Price filter
+                if max_price and metadata.get("price", 0) > max_price:
+                    continue
+
+                # Dietary restrictions filter
+                if dietary_restrictions:
+                    item_dietary = metadata.get("dietary_info", [])
+                    if not any(restriction in item_dietary for restriction in dietary_restrictions):
+                        continue
+
+                result = {
+                    "id": metadata.get("id", doc.id),
+                    "name": metadata.get("name", "Unknown Item"),
+                    "description": metadata.get("description", ""),
+                    "category": metadata.get("category", "unknown"),
+                    "price": metadata.get("price", 0),
+                    "dietary_info": metadata.get("dietary_info", []),
+                    "available": metadata.get("available", True),
+                    "rating": metadata.get("rating", 0),
+                    "similarity_score": search_result.score,
+                    "relevance": "high"
+                    if search_result.score > 0.8
+                    else "medium"
+                    if search_result.score > 0.5
+                    else "low",
+                }
+                results.append(result)
+
+                if len(results) >= limit:
+                    break
+
+            await vector_store.close()
+
+            retrieval_time = time.time() - start_time
+
+            return {
+                "items": results,
+                "total_found": len(results),
+                "query": query,
+                "filters": {
+                    "category": category,
+                    "dietary_restrictions": dietary_restrictions,
+                    "max_price": max_price,
+                },
+                "retrieval_time_ms": round(retrieval_time * 1000, 2),
+                "source": "vector_database",
+                "tenant_id": "demo_restaurant",
+            }
+
+        except Exception as e:
+            # Fallback to sample data on error
+            print(f"Database search failed: {e}")
+            return await self._sample_data_search(kwargs)
 
     async def _sample_data_search(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Search using sample data when RAG/database not available."""
