@@ -101,7 +101,7 @@ class RetrieveMenuTool(BaseTool):
 
     async def execute(self, **kwargs) -> Dict[str, Any]:
         """
-        Execute menu retrieval using RAG search.
+        Execute menu retrieval using RAG search with vector similarity.
 
         Args:
             query: Search query string
@@ -119,30 +119,154 @@ class RetrieveMenuTool(BaseTool):
         max_price = kwargs.get("max_price")
         limit = kwargs.get("limit", 10)
 
-        # Try database search first, even if RAG imports failed
-        database_url = os.getenv("DATABASE_URL") or "postgresql://postgres:password@localhost:5432/ragline"
+        # Try to use shared embedding manager from app state if available
+        database_url = os.getenv("DATABASE_URL") or "postgresql://ragline_user:secure_password@localhost:5433/ragline"
         api_key = os.getenv("OPENAI_API_KEY")
 
-        if not api_key:
-            # Try database with mock embeddings for demo
+        # Always try vector search first for the best RAG experience
+        if api_key and RAG_AVAILABLE:
+            try:
+                return await self._vector_search_with_rag(kwargs, database_url, api_key)
+            except Exception as e:
+                print(f"Vector RAG search failed, trying database fallback: {e}")
+
+        # Fallback to database with mock embeddings if no API key
+        if database_url:
             try:
                 return await self._database_search_with_mock_embeddings(kwargs, database_url)
             except Exception as e:
                 print(f"Database search failed: {e}")
-                pass  # Continue to fallback
 
-        # If RAG not available, fall back to mock data
-        if not RAG_AVAILABLE:
-            return await self._fallback_mock_search(kwargs)
+        # Final fallback to sample data
+        return await self._sample_data_search(kwargs)
+
+    async def _vector_search_with_rag(self, kwargs: Dict[str, Any], database_url: str, api_key: str) -> Dict[str, Any]:
+        """Perform vector search using the full RAG pipeline."""
+
+        query = kwargs.get("query", "")
+        category = kwargs.get("category")
+        dietary_restrictions = kwargs.get("dietary_restrictions", [])
+        max_price = kwargs.get("max_price")
+        limit = kwargs.get("limit", 10)
 
         try:
-            # Create embedding manager
-            database_url = os.getenv("DATABASE_URL")
+            # Initialize RAG system
+            embedding_manager = await create_embedding_manager(
+                provider="openai", api_key=api_key, database_url=database_url
+            )
+
+            # Create user context for personalized search
+            user_preferences = {}
+            if dietary_restrictions:
+                user_preferences["dietary_restrictions"] = dietary_restrictions
+            if category:
+                user_preferences["favorite_category"] = category
+
+            # Build search query
+            search_query = self._build_search_query(query, category, dietary_restrictions)
+
+            # Perform RAG search
+            retrieved_docs = await retrieve_menu_items(
+                embedding_manager=embedding_manager,
+                query=search_query,
+                user_preferences=user_preferences,
+                max_results=limit * 2,  # Get more for filtering
+            )
+
+            # Apply additional filters
+            filtered_results = []
+            for retrieved_doc in retrieved_docs:
+                item_metadata = retrieved_doc.document.metadata
+
+                # Price filter
+                if max_price and item_metadata.get("price", 0) > max_price:
+                    continue
+
+                # Category filter (if not already in query)
+                if category and item_metadata.get("category") != category:
+                    continue
+
+                # Availability filter
+                if not item_metadata.get("available", True):
+                    continue
+
+                filtered_results.append(retrieved_doc)
+
+            # Limit results
+            final_results = filtered_results[:limit]
+
+            # Format results with RAG context
+            items = []
+            rag_context = []
+
+            for retrieved_doc in final_results:
+                metadata = retrieved_doc.document.metadata
+
+                # Format item data
+                item = {
+                    "id": metadata.get("id", "unknown"),
+                    "name": metadata.get("name", "Unknown Item"),
+                    "category": metadata.get("category", "unknown"),
+                    "price": metadata.get("price", 0.0),
+                    "description": metadata.get("description", ""),
+                    "dietary_info": metadata.get("dietary_info", []),
+                    "available": metadata.get("available", True),
+                    "rating": metadata.get("rating"),
+                    "rag_relevance": {
+                        "similarity_score": retrieved_doc.similarity_score,
+                        "relevance_score": retrieved_doc.relevance_score,
+                        "rank": retrieved_doc.rank,
+                        "retrieval_reason": retrieved_doc.retrieval_reason,
+                    },
+                }
+                items.append(item)
+
+                # Add to RAG context
+                rag_context.append(
+                    {
+                        "content": retrieved_doc.document.content,
+                        "relevance": retrieved_doc.similarity_score,
+                        "reason": retrieved_doc.retrieval_reason,
+                    }
+                )
+
+            await embedding_manager.close()
+
+            # Enhanced result with RAG context
+            result = {
+                "search_method": "rag_vector_search",
+                "items": items,
+                "total_found": len(filtered_results),
+                "returned": len(final_results),
+                "rag_context": {
+                    "query_processed": search_query,
+                    "retrieved_documents": len(retrieved_docs),
+                    "filtered_results": len(filtered_results),
+                    "context_items": rag_context,
+                },
+                "filters_applied": {
+                    "query": query or None,
+                    "category": category,
+                    "dietary_restrictions": dietary_restrictions,
+                    "max_price": max_price,
+                    "user_preferences": user_preferences,
+                },
+            }
+
+            if not final_results:
+                raise ToolError(f"No menu items found matching '{search_query}' with specified filters")
+
+            return result
+
+        except Exception as e:
+            # Fall back to database search on error
+            print(f"RAG search failed, falling back to database search: {e}")
+            return await self._database_search_with_mock_embeddings(kwargs, database_url)
             api_key = os.getenv("OPENAI_API_KEY")
 
             # Set default database URL if not provided
             if not database_url:
-                database_url = "postgresql://postgres:password@localhost:5432/ragline"
+                database_url = "postgresql://ragline_user:secure_password@localhost:5433/ragline"
 
             if not api_key:
                 # Use database with mock embeddings for demo
@@ -409,7 +533,7 @@ class RetrieveMenuTool(BaseTool):
 
             menu_items = SAMPLE_MENU_ITEMS
         else:
-            # Inline fallback data
+            # Inline fallback data - comprehensive sample including desserts
             menu_items = [
                 {
                     "id": "item_1",
@@ -430,6 +554,26 @@ class RetrieveMenuTool(BaseTool):
                     "dietary_info": ["vegan", "vegetarian", "gluten-free"],
                     "available": True,
                     "rating": 4.7,
+                },
+                {
+                    "id": "item_4",
+                    "name": "Chocolate Lava Cake",
+                    "category": "desserts",
+                    "price": 8.99,
+                    "description": "Rich chocolate cake with molten center, served with vanilla ice cream",
+                    "dietary_info": ["vegetarian"],
+                    "available": True,
+                    "rating": 4.8,
+                },
+                {
+                    "id": "item_5",
+                    "name": "Garlic Bread",
+                    "category": "sides",
+                    "price": 6.99,
+                    "description": "Crispy bread with garlic butter and fresh herbs",
+                    "dietary_info": ["vegetarian"],
+                    "available": True,
+                    "rating": 4.3,
                 },
             ]
 

@@ -5,15 +5,18 @@ Supports tool calling and RAG-enhanced responses.
 
 import asyncio
 import json
+import logging
 import sys
 import uuid
 from datetime import datetime
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -128,17 +131,21 @@ async def generate_chat_stream(
     request: ChatRequest,
     messages: Optional[List[ChatMessage]] = None,
     token_manager: Optional[Any] = None,
+    app_state: Optional[Any] = None,
 ) -> AsyncGenerator[str, None]:
     """Generate streaming chat response with tool calling support."""
 
-    if not LLM_CLIENT_AVAILABLE:
-        # Fallback to mock response if LLM client not available
-        yield f"data: {json.dumps({'type': 'error', 'message': 'LLM client not available'})}\n\n"
-        return
-
     try:
-        # Get LLM client
-        client = get_llm_client()
+        # Get LLM client from app state or fallback
+        client = None
+        if app_state and hasattr(app_state, "llm_client"):
+            client = app_state.llm_client
+        elif LLM_CLIENT_AVAILABLE:
+            client = get_llm_client()
+
+        if not client:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'LLM client not available'})}\n\n"
+            return
 
         # Use enhanced messages if provided, otherwise use request messages
         source_messages = messages or request.messages
@@ -148,9 +155,15 @@ async def generate_chat_stream(
 
         # Define tools if enabled
         tools = None
+        tool_manager = None
         if request.tools_enabled and TOOLS_AVAILABLE:
             try:
-                tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
+                # Get tool manager from app state or create new one
+                if app_state and hasattr(app_state, "tool_manager"):
+                    tool_manager = app_state.tool_manager
+                else:
+                    tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
+
                 tools = tool_manager.get_openai_functions()
             except Exception as e:
                 print(f"Warning: Failed to load tools for streaming: {e}")
@@ -185,7 +198,7 @@ async def generate_chat_stream(
                 yield f"data: {json.dumps(chunk_data)}\n\n"
 
             elif chunk.get("type") == "tool_calls":
-                # Tool call chunk
+                # Tool call chunk - execute real tools with RAG
                 tool_calls = chunk.get("delta", {}).get("tool_calls", [])
                 for tool_call in tool_calls:
                     tool_call_data = {
@@ -198,16 +211,48 @@ async def generate_chat_stream(
                     }
                     yield f"data: {json.dumps(tool_call_data)}\n\n"
 
-                    # Simulate tool execution (mock for now)
-                    await asyncio.sleep(0.1)
+                    # Execute real tool with RAG integration
+                    if tool_manager and tool_call.get("function"):
+                        try:
+                            function_name = tool_call["function"].get("name")
+                            function_args = tool_call["function"].get("arguments", "{}")
 
-                    # Emit mock tool result
-                    tool_result = {
-                        "type": "tool_result",
-                        "tool_call_id": tool_call.get("id"),
-                        "result": f"Mock result for {tool_call.get('function', {}).get('name', 'unknown')}",
-                    }
-                    yield f"data: {json.dumps(tool_result)}\n\n"
+                            # Execute tool via tool manager (which uses RAG for retrieve_menu)
+                            tool_result = await tool_manager.execute_tool(
+                                tool_name=function_name, arguments=function_args, tool_call_id=tool_call.get("id")
+                            )
+
+                            # Emit real tool result
+                            tool_result_data = {
+                                "type": "tool_result",
+                                "tool_call_id": tool_call.get("id"),
+                                "result": tool_result.data
+                                if tool_result.success
+                                else f"Tool error: {tool_result.error}",
+                                "success": tool_result.success,
+                                "latency_ms": tool_result.latency_ms,
+                            }
+                            yield f"data: {json.dumps(tool_result_data)}\n\n"
+
+                        except Exception as e:
+                            # Emit error result
+                            error_result = {
+                                "type": "tool_result",
+                                "tool_call_id": tool_call.get("id"),
+                                "result": f"Tool execution error: {str(e)}",
+                                "success": False,
+                                "latency_ms": 0,
+                            }
+                            yield f"data: {json.dumps(error_result)}\n\n"
+                    else:
+                        # Fallback mock result
+                        mock_result = {
+                            "type": "tool_result",
+                            "tool_call_id": tool_call.get("id"),
+                            "result": f"Tool manager not available for {tool_call.get('function', {}).get('name', 'unknown')}",
+                            "success": False,
+                        }
+                        yield f"data: {json.dumps(mock_result)}\n\n"
 
             elif chunk.get("type") == "error":
                 # Error chunk
@@ -227,8 +272,13 @@ async def generate_chat_stream(
         yield f"data: {json.dumps(error_data)}\n\n"
 
 
+def get_app_state(request: Request):
+    """Get FastAPI app state."""
+    return request.app.state
+
+
 @router.post("/completions", response_model=ChatResponse)
-async def chat_completions(request: ChatRequest):
+async def chat_completions(request: ChatRequest, app_state=Depends(get_app_state)):
     """
     Create chat completion with optional streaming.
 
@@ -303,12 +353,12 @@ async def chat_completions(request: ChatRequest):
         # Use enhanced streaming if available
         if ENHANCED_STREAMING_AVAILABLE:
             return BufferedEventSourceResponse(
-                generate_chat_stream(request, enhanced_messages, token_manager),
+                generate_chat_stream(request, enhanced_messages, token_manager, app_state),
                 session_id=request.session_id,
             )
         else:
             return StreamingResponse(
-                generate_chat_stream(request, enhanced_messages),
+                generate_chat_stream(request, enhanced_messages, None, app_state),
                 media_type="text/plain",
                 headers={
                     "Cache-Control": "no-cache",
@@ -317,47 +367,86 @@ async def chat_completions(request: ChatRequest):
                 },
             )
     else:
-        # Non-streaming response
-        if not LLM_CLIENT_AVAILABLE:
-            raise HTTPException(status_code=503, detail="LLM client not available")
-
+        # Non-streaming response with tool execution
         try:
-            client = get_llm_client()
+            # Get LLM client from app state
+            client = None
+            if hasattr(app_state, "llm_client"):
+                client = app_state.llm_client
+            elif LLM_CLIENT_AVAILABLE:
+                client = get_llm_client()
+
+            if not client:
+                raise HTTPException(status_code=503, detail="LLM client not available")
 
             # Convert messages to LLM format
-            llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in request.messages]
+            llm_messages = [LLMChatMessage(role=msg.role, content=msg.content) for msg in enhanced_messages]
 
             # Define tools if enabled
             tools = None
+            tool_manager = None
             if request.tools_enabled and TOOLS_AVAILABLE:
                 try:
-                    tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
+                    # Get tool manager from app state
+                    if hasattr(app_state, "tool_manager"):
+                        tool_manager = app_state.tool_manager
+                    else:
+                        tool_manager = get_tool_manager(tenant_id=request.tenant_id, user_id=request.user_id)
+
                     tools = tool_manager.get_openai_functions()
                 except Exception as e:
                     print(f"Warning: Failed to load tools for non-streaming: {e}")
                     tools = None
 
-            # Get response from LLM
+            # Get initial response from LLM
             response = await client.chat_completion(
                 messages=llm_messages,
                 tools=tools,
                 stream=False,
                 temperature=0.7,
-                max_tokens=1000,
+                max_tokens=request.max_tokens or 1000,
             )
+
+            # Handle tool calls if present
+            final_response = response
+            if response.tool_calls and tool_manager:
+                try:
+                    # Execute tool calls
+                    tool_results = await tool_manager.execute_tool_calls(response.tool_calls)
+
+                    # Add tool results to conversation and get final response
+                    extended_messages = (
+                        llm_messages
+                        + [LLMChatMessage(role="assistant", content=response.content, tool_calls=response.tool_calls)]
+                        + [
+                            LLMChatMessage(role="tool", content=tool_result["content"], name=tool_result["name"])
+                            for tool_result in tool_results
+                        ]
+                    )
+
+                    # Get final response after tool execution
+                    final_response = await client.chat_completion(
+                        messages=extended_messages,
+                        stream=False,
+                        temperature=0.7,
+                        max_tokens=request.max_tokens or 1000,
+                    )
+
+                except Exception as e:
+                    print(f"Warning: Tool execution failed: {e}")
 
             return ChatResponse(
                 choices=[
                     {
                         "message": {
                             "role": "assistant",
-                            "content": response.content,
-                            "tool_calls": response.tool_calls,
+                            "content": final_response.content,
+                            "tool_calls": getattr(final_response, "tool_calls", None),
                         },
-                        "finish_reason": response.finish_reason,
+                        "finish_reason": final_response.finish_reason,
                     }
                 ],
-                usage=response.usage,
+                usage=getattr(final_response, "usage", None),
             )
 
         except Exception as e:
