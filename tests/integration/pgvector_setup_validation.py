@@ -155,7 +155,7 @@ def validate_pgvector_setup():
     print("\n6. Basic Vector Operations")
     try:
         # Insert test vector
-        test_vector = "[" + ",".join(["0.1"] * 1536) + "]"
+        test_vector = "{" + ",".join(["0.1"] * 1536) + "}"
 
         subprocess.run(
             [
