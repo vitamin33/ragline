@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAGline API Test Dashboard</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', roboto, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .panel { background: white; border-radius: 8px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        h1, h2 { color: #333; margin-top: 0; }
+        button { background: #007bff; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        input, textarea { padding: 8px; border: 1px solid #ddd; border-radius: 4px; margin: 5px; width: 200px; }
+        .result { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; white-space: pre-wrap; max-height: 200px; overflow-y: auto; }
+        .error { background: #f8d7da; color: #721c24; }
+        .success { background: #d4edda; color: #155724; }
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+        .status.ready { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>RAGline API Test Dashboard</h1>
+        
+        <!-- Auth Section -->
+        <div class="panel">
+            <h2>Authentication</h2>
+            <div>
+                <input type="text" id="loginTenant" placeholder="Tenant ID" value="1">
+                <input type="email" id="loginEmail" placeholder="Email" value="admin@example.com">
+                <input type="password" id="loginPassword" placeholder="Password" value="password">
+                <button onclick="login()">Login</button>
+                <span id="authStatus" class="status">Not authenticated</span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Products Section -->
+            <div class="panel">
+                <h2>Products</h2>
+                <div>
+                    <h3>Create Product</h3>
+                    <input type="text" id="productName" placeholder="Product Name" value="Test Product">
+                    <input type="text" id="productDesc" placeholder="Description" value="Test description">
+                    <input type="number" id="productPrice" placeholder="Price (cents)" value="1999">
+                    <button onclick="createProduct()">Create</button>
+                </div>
+                <div>
+                    <h3>List Products</h3>
+                    <input type="text" id="productSearch" placeholder="Search products">
+                    <button onclick="listProducts()">List Products</button>
+                </div>
+                <div id="productsResult" class="result"></div>
+            </div>
+
+            <!-- Orders Section -->
+            <div class="panel">
+                <h2>Orders</h2>
+                <div>
+                    <h3>Create Order</h3>
+                    <input type="text" id="orderSku" placeholder="Product SKU" value="PROD-1">
+                    <input type="number" id="orderQty" placeholder="Quantity" value="2">
+                    <button onclick="createOrder()">Create Order</button>
+                </div>
+                <div>
+                    <h3>List Orders</h3>
+                    <select id="orderStatus">
+                        <option value="">All statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button onclick="listOrders()">List Orders</button>
+                </div>
+                <div id="ordersResult" class="result"></div>
+            </div>
+        </div>
+
+        <!-- Events Section -->
+        <div class="panel">
+            <h2>Real-time Events</h2>
+            <button onclick="connectSSE()">Connect SSE</button>
+            <button onclick="disconnectSSE()" class="danger">Disconnect</button>
+            <div id="eventsResult" class="result"></div>
+        </div>
+
+        <!-- System Status -->
+        <div class="panel">
+            <h2>System Status</h2>
+            <button onclick="checkHealth()">Health Check</button>
+            <div id="healthResult" class="result"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/api-client.js"></script>
+</body>
+</html>
