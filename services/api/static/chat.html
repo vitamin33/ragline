@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAGline Chat Test Interface</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', roboto, sans-serif; margin: 0; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; }
+        .header { background: white; padding: 20px; border-bottom: 1px solid #ddd; }
+        .chat-container { flex: 1; background: white; overflow: hidden; display: flex; flex-direction: column; }
+        .messages { flex: 1; padding: 20px; overflow-y: auto; }
+        .message { margin: 10px 0; padding: 12px; border-radius: 8px; }
+        .user { background: #007bff; color: white; margin-left: 20%; }
+        .assistant { background: #e9ecef; margin-right: 20%; }
+        .system { background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; font-size: 14px; }
+        .input-area { background: white; border-top: 1px solid #ddd; padding: 20px; }
+        .input-row { display: flex; gap: 10px; align-items: center; }
+        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 4px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .auth-panel { background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 15px; }
+        .auth-panel input { width: auto; margin: 0 5px; }
+        .status { padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>RAGline Chat Test Interface</h1>
+            
+            <!-- Auth Panel -->
+            <div class="auth-panel">
+                <input type="text" id="chatTenant" placeholder="Tenant ID" value="1">
+                <input type="email" id="chatEmail" placeholder="Email" value="admin@example.com">
+                <input type="password" id="chatPassword" placeholder="Password" value="password">
+                <button onclick="chatLogin()">Login</button>
+                <span id="chatAuthStatus" class="status disconnected">Not authenticated</span>
+            </div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="chatMessages">
+                <div class="message system">
+                    Welcome to RAGline Chat Test Interface. Login and start chatting to test the LLM service integration.
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-row">
+                    <input type="text" id="chatInput" placeholder="Type your message..." onkeypress="handleEnter(event)">
+                    <button onclick="sendMessage()" id="sendButton" disabled>Send</button>
+                    <button onclick="clearChat()" class="danger">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/api-client.js"></script>
+    <script>
+        let chatToken = null;
+        let chatEventSource = null;
+
+        async function chatLogin() {
+            const tenant = document.getElementById('chatTenant').value;
+            const email = document.getElementById('chatEmail').value;
+            const password = document.getElementById('chatPassword').value;
+            
+            try {
+                const response = await fetch('/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, tenant_id: parseInt(tenant) })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    chatToken = data.access_token;
+                    document.getElementById('chatAuthStatus').textContent = 'Authenticated';
+                    document.getElementById('chatAuthStatus').className = 'status connected';
+                    document.getElementById('sendButton').disabled = false;
+                    addMessage('system', 'Authentication successful. You can now chat with the LLM service.');
+                } else {
+                    throw new Error('Authentication failed');
+                }
+            } catch (error) {
+                addMessage('system', `Authentication error: ${error.message}`, 'error');
+            }
+        }
+
+        function addMessage(type, content, className = '') {
+            const messagesDiv = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type} ${className}`;
+            messageDiv.textContent = content;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        async function sendMessage() {
+            if (!chatToken) {
+                addMessage('system', 'Please login first', 'error');
+                return;
+            }
+
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            addMessage('user', message);
+            input.value = '';
+
+            try {
+                // Send to LLM service (port 8001)
+                const response = await fetch('http://localhost:8001/v1/chat/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${chatToken}`
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: 'test-chat-' + Date.now()
+                    })
+                });
+
+                if (response.ok) {
+                    addMessage('assistant', 'Response from LLM service would appear here...');
+                } else {
+                    addMessage('system', `LLM service error: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addMessage('system', `Chat error: ${error.message}`, 'error');
+            }
+        }
+
+        function handleEnter(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        function clearChat() {
+            const messagesDiv = document.getElementById('chatMessages');
+            messagesDiv.innerHTML = '<div class="message system">Chat cleared. Ready for new conversation.</div>';
+        }
+    </script>
+</body>
+</html>

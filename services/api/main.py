@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from packages.db.database import close_db, create_tables
 from services.api.routers import auth, events, orders, products
@@ -148,6 +149,12 @@ async def root():
         "health": "/health",
     }
 
+
+# Mount static files
+import os
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # Include routers
 app.include_router(auth.router, prefix="/v1/auth", tags=["Authentication"])

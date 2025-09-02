@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 
 from packages.security.auth import get_current_user_token
-from packages.security.jwt import TokenData, verify_token
+from packages.security.jwt import TokenData, JWTManager
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)

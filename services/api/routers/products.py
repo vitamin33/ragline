@@ -49,6 +49,7 @@ async def list_products(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     is_active: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None, description="Search in product name or description"),
     token_data: TokenData = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
     cache: RedisCache = Depends(get_cache),
@@ -57,7 +58,7 @@ async def list_products(
     tenant_id = token_data.tenant_id
 
     # Build cache key for this query
-    cache_key = f"list:{skip}:{limit}:{is_active}"
+    cache_key = f"list:{skip}:{limit}:{is_active}:{search or 'none'}"
 
     # Try cache first
     cached_products = await cache.get(tenant_id, "products", cache_key)
@@ -72,6 +73,13 @@ async def list_products(
         # Apply filters
         if is_active is not None:
             query = query.where(Product.is_active == is_active)
+            
+        # Apply search filter
+        if search:
+            search_term = f"%{search}%"
+            query = query.where(
+                Product.name.ilike(search_term) | Product.description.ilike(search_term)
+            )
 
         # Apply pagination
         query = query.offset(skip).limit(limit).order_by(Product.created_at.desc())
@@ -101,6 +109,7 @@ async def list_products(
             "Product list fetched from database",
             tenant_id=tenant_id,
             count=len(products),
+            search=search,
         )
         return [ProductResponse(**product) for product in product_data]
 
@@ -303,10 +312,49 @@ async def update_product(
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(product_id: int):
+async def delete_product(
+    product_id: int,
+    token_data: TokenData = Depends(get_current_user_token),
+    db: AsyncSession = Depends(get_db),
+    cache: RedisCache = Depends(get_cache),
+):
     """Delete a specific product."""
-    # TODO: Implement product deletion
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Product deletion not yet implemented",
-    )
+    tenant_id = token_data.tenant_id
+    
+    try:
+        # Fetch existing product
+        result = await db.execute(
+            select(Product).where(and_(Product.id == product_id, Product.tenant_id == tenant_id))
+        )
+        db_product = result.scalar_one_or_none()
+        
+        if not db_product:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+        
+        # Soft delete by marking inactive
+        db_product.is_active = False
+        await db.commit()
+        
+        # Invalidate cache
+        await cache.invalidate_product_cache(tenant_id, product_id)
+        
+        logger.info(
+            "Product deleted (soft delete)",
+            tenant_id=tenant_id,
+            product_id=product_id,
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        await db.rollback()
+        logger.error(
+            "Product deletion failed",
+            product_id=product_id,
+            tenant_id=tenant_id,
+            error=str(e),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete product",
+        )
