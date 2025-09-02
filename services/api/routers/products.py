@@ -73,13 +73,11 @@ async def list_products(
         # Apply filters
         if is_active is not None:
             query = query.where(Product.is_active == is_active)
-            
+
         # Apply search filter
         if search:
             search_term = f"%{search}%"
-            query = query.where(
-                Product.name.ilike(search_term) | Product.description.ilike(search_term)
-            )
+            query = query.where(Product.name.ilike(search_term) | Product.description.ilike(search_term))
 
         # Apply pagination
         query = query.offset(skip).limit(limit).order_by(Product.created_at.desc())
@@ -320,30 +318,28 @@ async def delete_product(
 ):
     """Delete a specific product."""
     tenant_id = token_data.tenant_id
-    
+
     try:
         # Fetch existing product
-        result = await db.execute(
-            select(Product).where(and_(Product.id == product_id, Product.tenant_id == tenant_id))
-        )
+        result = await db.execute(select(Product).where(and_(Product.id == product_id, Product.tenant_id == tenant_id)))
         db_product = result.scalar_one_or_none()
-        
+
         if not db_product:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
-        
+
         # Soft delete by marking inactive
         db_product.is_active = False
         await db.commit()
-        
+
         # Invalidate cache
         await cache.invalidate_product_cache(tenant_id, product_id)
-        
+
         logger.info(
             "Product deleted (soft delete)",
             tenant_id=tenant_id,
             product_id=product_id,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

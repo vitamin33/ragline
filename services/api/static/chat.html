@@ -31,7 +31,7 @@
     <div class="container">
         <div class="header">
             <h1>RAGline Chat Test Interface</h1>
-            
+
             <!-- Auth Panel -->
             <div class="auth-panel">
                 <input type="text" id="chatTenant" placeholder="Tenant ID" value="1">
@@ -68,14 +68,14 @@
             const tenant = document.getElementById('chatTenant').value;
             const email = document.getElementById('chatEmail').value;
             const password = document.getElementById('chatPassword').value;
-            
+
             try {
                 const response = await fetch('/v1/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password, tenant_id: parseInt(tenant) })
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     chatToken = data.access_token;

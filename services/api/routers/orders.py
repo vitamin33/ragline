@@ -61,30 +61,30 @@ class OrderResponse(OrderBase):
 
 @router.get("/", response_model=List[OrderResponse])
 async def list_orders(
-    skip: int = 0, 
-    limit: int = 100, 
+    skip: int = 0,
+    limit: int = 100,
     status: Optional[str] = None,
     token_data: TokenData = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ):
     """List orders with pagination and filtering."""
     tenant_id = token_data.tenant_id
-    
+
     # Build query with tenant isolation
     query = select(Order).where(Order.tenant_id == tenant_id).options(selectinload(Order.items))
-    
+
     # Add status filtering if provided
     if status:
         query = query.where(Order.status == status)
-    
+
     # Apply pagination
     query = query.offset(skip).limit(min(limit, 1000))  # Cap at 1000 for safety
     query = query.order_by(Order.created_at.desc())  # Most recent first
-    
+
     try:
         result = await db.execute(query)
         orders = result.scalars().all()
-        
+
         # Convert to response format
         response_orders = []
         for order in orders:
@@ -108,7 +108,7 @@ async def list_orders(
                 "updated_at": order.updated_at.isoformat(),
             }
             response_orders.append(OrderResponse(**order_data))
-        
+
         logger.info(
             "Orders listed",
             tenant_id=tenant_id,
@@ -117,9 +117,9 @@ async def list_orders(
             limit=limit,
             status_filter=status,
         )
-        
+
         return response_orders
-        
+
     except Exception as e:
         logger.error("Order listing failed", tenant_id=tenant_id, error=str(e))
         raise HTTPException(
@@ -349,7 +349,7 @@ async def get_order(
 ):
     """Get a specific order by ID."""
     tenant_id = token_data.tenant_id
-    
+
     try:
         result = await db.execute(
             select(Order)
@@ -357,13 +357,10 @@ async def get_order(
             .options(selectinload(Order.items))
         )
         order = result.scalar_one_or_none()
-        
+
         if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Order not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
         response_data = {
             "id": order.id,
             "tenant_id": order.tenant_id,
@@ -383,10 +380,10 @@ async def get_order(
             "created_at": order.created_at.isoformat(),
             "updated_at": order.updated_at.isoformat(),
         }
-        
+
         logger.info("Order retrieved", tenant_id=tenant_id, order_id=order_id)
         return OrderResponse(**response_data)
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -399,14 +396,14 @@ async def get_order(
 
 @router.put("/{order_id}", response_model=OrderResponse)
 async def update_order(
-    order_id: int, 
+    order_id: int,
     order: OrderUpdate,
     token_data: TokenData = Depends(get_current_user_token),
     db: AsyncSession = Depends(get_db),
 ):
     """Update a specific order."""
     tenant_id = token_data.tenant_id
-    
+
     try:
         # Fetch existing order
         result = await db.execute(
@@ -415,20 +412,17 @@ async def update_order(
             .options(selectinload(Order.items))
         )
         db_order = result.scalar_one_or_none()
-        
+
         if not db_order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Order not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
         old_status = db_order.status
-        
+
         # Update fields that were provided
         update_data = order.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_order, field, value)
-        
+
         # Create outbox event for status change
         if "status" in update_data and old_status != db_order.status:
             outbox_event = Outbox(
@@ -451,10 +445,10 @@ async def update_order(
                 },
             )
             db.add(outbox_event)
-        
+
         await db.commit()
         await db.refresh(db_order)
-        
+
         response_data = {
             "id": db_order.id,
             "tenant_id": db_order.tenant_id,
@@ -474,7 +468,7 @@ async def update_order(
             "created_at": db_order.created_at.isoformat(),
             "updated_at": db_order.updated_at.isoformat(),
         }
-        
+
         logger.info(
             "Order updated with outbox event",
             tenant_id=tenant_id,
@@ -482,9 +476,9 @@ async def update_order(
             old_status=old_status,
             new_status=db_order.status,
         )
-        
+
         return OrderResponse(**response_data)
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -504,27 +498,22 @@ async def cancel_order(
 ):
     """Cancel a specific order."""
     tenant_id = token_data.tenant_id
-    
+
     try:
         # Fetch existing order
-        result = await db.execute(
-            select(Order).where(and_(Order.id == order_id, Order.tenant_id == tenant_id))
-        )
+        result = await db.execute(select(Order).where(and_(Order.id == order_id, Order.tenant_id == tenant_id)))
         db_order = result.scalar_one_or_none()
-        
+
         if not db_order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, 
-                detail="Order not found"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
+
         if db_order.status == "cancelled":
             logger.info("Order already cancelled", tenant_id=tenant_id, order_id=order_id)
             return
-        
+
         old_status = db_order.status
         db_order.status = "cancelled"
-        
+
         # Create outbox event for cancellation
         outbox_event = Outbox(
             aggregate_id=str(db_order.id),
@@ -546,16 +535,16 @@ async def cancel_order(
             },
         )
         db.add(outbox_event)
-        
+
         await db.commit()
-        
+
         logger.info(
             "Order cancelled with outbox event",
             tenant_id=tenant_id,
             order_id=order_id,
             previous_status=old_status,
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
