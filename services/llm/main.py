@@ -21,7 +21,7 @@ load_dotenv("../../.env")
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from routers import chat
+from routers import chat, registry
 
 
 @asynccontextmanager
@@ -71,11 +71,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         print("📝 LLM service will run with limited RAG capabilities")
         app.state.embedding_manager = None
 
-    # Setup RAG components - initialize tool manager
-    from tools.manager import get_tool_manager
+    # Setup RAG components - initialize enhanced tool manager with dynamic registry
+    from services.llm.registry.dynamic_registry import get_dynamic_registry
+    from services.llm.tools.enhanced_manager import get_enhanced_tool_manager
 
-    app.state.tool_manager = get_tool_manager()
-    print("✅ Tool manager initialized")
+    app.state.tool_manager = await get_enhanced_tool_manager()
+    app.state.dynamic_registry = await get_dynamic_registry()
+    print("✅ Enhanced tool manager with dynamic registry initialized")
 
     print("🎉 RAGline LLM Service ready!")
 
@@ -112,6 +114,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(chat.router, prefix="/chat", tags=["chat"])
+    app.include_router(registry.router, prefix="/registry", tags=["tool_registry"])
 
     # Health check
     @app.get("/health")
