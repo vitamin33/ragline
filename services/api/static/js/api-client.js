@@ -31,11 +31,11 @@ class RAGlineClient {
         try {
             const response = await fetch(url, config);
             const data = await response.json();
-            
+
             if (!response.ok) {
                 throw new Error(data.message || `HTTP ${response.status}`);
             }
-            
+
             return data;
         } catch (error) {
             console.error('API request failed:', error);
@@ -126,7 +126,7 @@ class RAGlineClient {
 
         const url = `${this.baseUrl}/v1/events/stream`;
         this.eventSource = new EventSource(url);
-        
+
         this.eventSource.onopen = () => {
             this.logEvent('SSE connected');
         };
@@ -180,7 +180,7 @@ async function login() {
     const tenant = document.getElementById('loginTenant').value;
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    
+
     try {
         const data = await client.login(email, password, parseInt(tenant));
         document.getElementById('authStatus').textContent = 'Authenticated';
@@ -198,7 +198,7 @@ async function createProduct() {
     const name = document.getElementById('productName').value;
     const description = document.getElementById('productDesc').value;
     const price = document.getElementById('productPrice').value;
-    
+
     try {
         const data = await client.createProduct(name, description, price);
         showResult('productsResult', data);
@@ -213,7 +213,7 @@ async function createProduct() {
 
 async function listProducts() {
     const search = document.getElementById('productSearch').value;
-    
+
     try {
         const data = await client.listProducts(0, 100, search || null);
         showResult('productsResult', data);
@@ -226,7 +226,7 @@ async function listProducts() {
 async function createOrder() {
     const sku = document.getElementById('orderSku').value;
     const quantity = parseInt(document.getElementById('orderQty').value);
-    
+
     try {
         const items = [{ sku, quantity }];
         const data = await client.createOrder(items, `test-${Date.now()}`);
@@ -241,7 +241,7 @@ async function createOrder() {
 
 async function listOrders() {
     const status = document.getElementById('orderStatus').value || null;
-    
+
     try {
         const data = await client.listOrders(0, 100, status);
         showResult('ordersResult', data);

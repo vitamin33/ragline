@@ -65,6 +65,11 @@ app.add_middleware(
     expose_headers=["X-Request-ID", "X-Tenant-ID"],
 )
 
+# Content validation middleware
+from services.api.middleware.content_validation import validate_tool_content
+
+app.middleware("http")(validate_tool_content)
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -152,6 +157,7 @@ async def root():
 
 # Mount static files
 import os
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
@@ -161,6 +167,11 @@ app.include_router(auth.router, prefix="/v1/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/v1/products", tags=["Products"])
 app.include_router(orders.router, prefix="/v1/orders", tags=["Orders"])
 app.include_router(events.router, prefix="/v1/events", tags=["Events"])
+
+# Import tools router
+from services.api.routers import tools
+
+app.include_router(tools.router, prefix="/v1/tools", tags=["Tools"])
 
 
 if __name__ == "__main__":

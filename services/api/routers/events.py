@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from sse_starlette.sse import EventSourceResponse
 
 from packages.security.auth import get_current_user_token
-from packages.security.jwt import TokenData, JWTManager
+from packages.security.jwt import JWTManager, TokenData
 
 router = APIRouter()
 logger = structlog.get_logger(__name__)
@@ -60,9 +60,7 @@ redis_manager = RedisConnectionManager()
 class WebSocketConnection:
     """Represents a WebSocket connection with metadata."""
 
-    def __init__(
-        self, websocket: WebSocket, client_id: str, user_id: str, tenant_id: str
-    ):
+    def __init__(self, websocket: WebSocket, client_id: str, user_id: str, tenant_id: str):
         self.websocket = websocket
         self.client_id = client_id
         self.user_id = user_id
@@ -80,9 +78,7 @@ class WebSocketConnection:
             self.last_message_at = datetime.now(timezone.utc)
             return True
         except Exception as e:
-            logger.error(
-                "WebSocket send failed", client_id=self.client_id, error=str(e)
-            )
+            logger.error("WebSocket send failed", client_id=self.client_id, error=str(e))
             return False
 
     def is_healthy(self) -> bool:
@@ -181,9 +177,7 @@ class WebSocketConnectionManager:
             if client_id in self.connections
         ]
 
-    async def broadcast_to_tenant(
-        self, tenant_id: str, message: dict, event_filter: Optional[str] = None
-    ):
+    async def broadcast_to_tenant(self, tenant_id: str, message: dict, event_filter: Optional[str] = None):
         """Broadcast message to all connections in a tenant."""
         connections = self.get_connections_for_tenant(tenant_id)
         successful_sends = 0
@@ -191,11 +185,7 @@ class WebSocketConnectionManager:
 
         for connection in connections:
             # Apply event filtering if specified
-            if (
-                event_filter
-                and event_filter not in connection.subscriptions
-                and "all" not in connection.subscriptions
-            ):
+            if event_filter and event_filter not in connection.subscriptions and "all" not in connection.subscriptions:
                 continue
 
             success = await connection.send_message(message)
@@ -214,25 +204,14 @@ class WebSocketConnectionManager:
         """Get connection statistics."""
         return {
             "total_connections": len(self.connections),
-            "connections_by_tenant": {
-                tenant: len(clients)
-                for tenant, clients in self._tenant_connections.items()
-            },
-            "connections_by_user": {
-                user: len(clients) for user, clients in self._user_connections.items()
-            },
-            "healthy_connections": sum(
-                1 for conn in self.connections.values() if conn.is_healthy()
-            ),
+            "connections_by_tenant": {tenant: len(clients) for tenant, clients in self._tenant_connections.items()},
+            "connections_by_user": {user: len(clients) for user, clients in self._user_connections.items()},
+            "healthy_connections": sum(1 for conn in self.connections.values() if conn.is_healthy()),
         }
 
     async def cleanup_stale_connections(self):
         """Remove stale/unhealthy connections."""
-        stale_clients = [
-            client_id
-            for client_id, conn in self.connections.items()
-            if not conn.is_healthy()
-        ]
+        stale_clients = [client_id for client_id, conn in self.connections.items() if not conn.is_healthy()]
 
         for client_id in stale_clients:
             await self.remove_connection(client_id)
@@ -354,15 +333,11 @@ async def stream_order_events(token_data: TokenData = Depends(get_current_user_t
 
             # Create consumer group if needed
             try:
-                await redis_client.xgroup_create(
-                    stream_key, consumer_group, id="0", mkstream=True
-                )
+                await redis_client.xgroup_create(stream_key, consumer_group, id="0", mkstream=True)
             except redis.exceptions.ResponseError:
                 pass
 
-            logger.info(
-                "Order SSE stream started", tenant_id=tenant_id, user_id=user_id
-            )
+            logger.info("Order SSE stream started", tenant_id=tenant_id, user_id=user_id)
 
             # Send connection confirmation
             yield {
@@ -405,9 +380,7 @@ async def stream_order_events(token_data: TokenData = Depends(get_current_user_t
                                         "event": event_type,
                                         "data": fields.get("payload", "{}"),
                                     }
-                                    await redis_client.xack(
-                                        stream_key, consumer_group, msg_id
-                                    )
+                                    await redis_client.xack(stream_key, consumer_group, msg_id)
 
                     # Heartbeat every 45 seconds for order streams
                     current_time = asyncio.get_event_loop().time()
@@ -427,18 +400,14 @@ async def stream_order_events(token_data: TokenData = Depends(get_current_user_t
                 except asyncio.TimeoutError:
                     pass
                 except Exception as e:
-                    logger.error(
-                        "Order stream error", tenant_id=tenant_id, error=str(e)
-                    )
+                    logger.error("Order stream error", tenant_id=tenant_id, error=str(e))
                     break
 
         except Exception as e:
             logger.error("Order SSE stream failed", tenant_id=tenant_id, error=str(e))
             yield {
                 "event": "error",
-                "data": json.dumps(
-                    {"stream": "orders", "message": "Stream failed", "error": str(e)}
-                ),
+                "data": json.dumps({"stream": "orders", "message": "Stream failed", "error": str(e)}),
             }
         finally:
             # Redis client cleanup handled by connection pool
@@ -471,15 +440,11 @@ async def stream_notifications(token_data: TokenData = Depends(get_current_user_
             # Create consumer groups for all streams
             for stream_key in stream_keys.keys():
                 try:
-                    await redis_client.xgroup_create(
-                        stream_key, consumer_group, id="0", mkstream=True
-                    )
+                    await redis_client.xgroup_create(stream_key, consumer_group, id="0", mkstream=True)
                 except redis.exceptions.ResponseError:
                     pass
 
-            logger.info(
-                "Notification SSE stream started", tenant_id=tenant_id, user_id=user_id
-            )
+            logger.info("Notification SSE stream started", tenant_id=tenant_id, user_id=user_id)
 
             # Send connection confirmation
             yield {
@@ -509,9 +474,7 @@ async def stream_notifications(token_data: TokenData = Depends(get_current_user_
                                 event_type = fields.get("event_type", "")
 
                                 # Send notification-worthy events for this tenant
-                                if event_tenant_id and str(event_tenant_id) == str(
-                                    tenant_id
-                                ):
+                                if event_tenant_id and str(event_tenant_id) == str(tenant_id):
                                     # Filter for notification-worthy events
                                     if event_type in [
                                         "order_created",
@@ -525,9 +488,7 @@ async def stream_notifications(token_data: TokenData = Depends(get_current_user_
                                             "event": event_type,
                                             "data": fields.get("payload", "{}"),
                                         }
-                                        await redis_client.xack(
-                                            stream, consumer_group, msg_id
-                                        )
+                                        await redis_client.xack(stream, consumer_group, msg_id)
 
                     # Heartbeat every 60 seconds for notifications
                     current_time = asyncio.get_event_loop().time()
@@ -547,15 +508,11 @@ async def stream_notifications(token_data: TokenData = Depends(get_current_user_
                 except asyncio.TimeoutError:
                     pass
                 except Exception as e:
-                    logger.error(
-                        "Notification stream error", tenant_id=tenant_id, error=str(e)
-                    )
+                    logger.error("Notification stream error", tenant_id=tenant_id, error=str(e))
                     break
 
         except Exception as e:
-            logger.error(
-                "Notification SSE stream failed", tenant_id=tenant_id, error=str(e)
-            )
+            logger.error("Notification SSE stream failed", tenant_id=tenant_id, error=str(e))
             yield {
                 "event": "error",
                 "data": json.dumps(
@@ -643,24 +600,18 @@ async def websocket_events(websocket: WebSocket):
 
         # Create consumer group
         try:
-            await redis_client.xgroup_create(
-                stream_key, consumer_group, id="0", mkstream=True
-            )
+            await redis_client.xgroup_create(stream_key, consumer_group, id="0", mkstream=True)
         except redis.exceptions.ResponseError:
             pass
 
-        logger.info(
-            "WebSocket connected", client_id=client_id, tenant_id=token_data.tenant_id
-        )
+        logger.info("WebSocket connected", client_id=client_id, tenant_id=token_data.tenant_id)
 
         # Message processing loop
         while True:
             try:
                 # Check for messages from client
                 try:
-                    message = await asyncio.wait_for(
-                        websocket.receive_text(), timeout=1.0
-                    )
+                    message = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
                     await handle_websocket_message(connection, message)
                 except asyncio.TimeoutError:
                     pass
@@ -678,29 +629,19 @@ async def websocket_events(websocket: WebSocket):
                     for stream, msgs in messages:
                         for msg_id, fields in msgs:
                             event_tenant_id = fields.get("tenant_id")
-                            if event_tenant_id and str(event_tenant_id) == str(
-                                token_data.tenant_id
-                            ):
+                            if event_tenant_id and str(event_tenant_id) == str(token_data.tenant_id):
                                 await connection.send_message(
                                     {
                                         "type": "event",
-                                        "event_type": fields.get(
-                                            "event_type", "unknown"
-                                        ),
+                                        "event_type": fields.get("event_type", "unknown"),
                                         "data": json.loads(fields.get("payload", "{}")),
-                                        "timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
                                     }
                                 )
-                                await redis_client.xack(
-                                    stream_key, consumer_group, msg_id
-                                )
+                                await redis_client.xack(stream_key, consumer_group, msg_id)
 
                 # Send periodic ping
-                if (
-                    datetime.now(timezone.utc) - connection.last_message_at
-                ).seconds > 30:
+                if (datetime.now(timezone.utc) - connection.last_message_at).seconds > 30:
                     await connection.send_message(
                         {
                             "type": "ping",
@@ -761,9 +702,7 @@ async def handle_websocket_message(connection: WebSocketConnection, message: str
 
         elif message_type == "ping":
             # Respond to client ping
-            await connection.send_message(
-                {"type": "pong", "timestamp": datetime.now(timezone.utc).isoformat()}
-            )
+            await connection.send_message({"type": "pong", "timestamp": datetime.now(timezone.utc).isoformat()})
 
         elif message_type == "get_stats":
             # Send connection statistics
@@ -777,23 +716,17 @@ async def handle_websocket_message(connection: WebSocketConnection, message: str
             )
 
         else:
-            await connection.send_message(
-                {"type": "error", "message": f"Unknown message type: {message_type}"}
-            )
+            await connection.send_message({"type": "error", "message": f"Unknown message type: {message_type}"})
 
     except json.JSONDecodeError:
-        await connection.send_message(
-            {"type": "error", "message": "Invalid JSON message"}
-        )
+        await connection.send_message({"type": "error", "message": "Invalid JSON message"})
     except Exception as e:
         logger.error(
             "WebSocket message handling error",
             client_id=connection.client_id,
             error=str(e),
         )
-        await connection.send_message(
-            {"type": "error", "message": "Message handling failed", "error": str(e)}
-        )
+        await connection.send_message({"type": "error", "message": "Message handling failed", "error": str(e)})
 
 
 @router.websocket("/ws/orders")
@@ -849,9 +782,7 @@ async def websocket_orders(websocket: WebSocket):
 
         # Create consumer group
         try:
-            await redis_client.xgroup_create(
-                stream_key, consumer_group, id="0", mkstream=True
-            )
+            await redis_client.xgroup_create(stream_key, consumer_group, id="0", mkstream=True)
         except redis.exceptions.ResponseError:
             pass
 
@@ -866,9 +797,7 @@ async def websocket_orders(websocket: WebSocket):
             try:
                 # Handle client messages
                 try:
-                    message = await asyncio.wait_for(
-                        websocket.receive_text(), timeout=2.0
-                    )
+                    message = await asyncio.wait_for(websocket.receive_text(), timeout=2.0)
                     await handle_websocket_message(connection, message)
                 except asyncio.TimeoutError:
                     pass
@@ -899,19 +828,13 @@ async def websocket_orders(websocket: WebSocket):
                                         "type": "order_event",
                                         "event_type": event_type,
                                         "data": json.loads(fields.get("payload", "{}")),
-                                        "timestamp": datetime.now(
-                                            timezone.utc
-                                        ).isoformat(),
+                                        "timestamp": datetime.now(timezone.utc).isoformat(),
                                     }
                                 )
-                                await redis_client.xack(
-                                    stream_key, consumer_group, msg_id
-                                )
+                                await redis_client.xack(stream_key, consumer_group, msg_id)
 
                 # Send heartbeat every 45 seconds
-                if (
-                    datetime.now(timezone.utc) - connection.last_message_at
-                ).seconds > 45:
+                if (datetime.now(timezone.utc) - connection.last_message_at).seconds > 45:
                     await connection.send_message(
                         {
                             "type": "heartbeat",
@@ -923,15 +846,11 @@ async def websocket_orders(websocket: WebSocket):
             except WebSocketDisconnect:
                 break
             except Exception as e:
-                logger.error(
-                    "WebSocket orders error", client_id=client_id, error=str(e)
-                )
+                logger.error("WebSocket orders error", client_id=client_id, error=str(e))
                 break
 
     except Exception as e:
-        logger.error(
-            "WebSocket orders connection failed", client_id=client_id, error=str(e)
-        )
+        logger.error("WebSocket orders connection failed", client_id=client_id, error=str(e))
 
     finally:
         await websocket_manager.remove_connection(client_id)
