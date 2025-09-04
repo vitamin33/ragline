@@ -114,7 +114,9 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(chat.router, prefix="/chat", tags=["chat"])
-    app.include_router(registry.router, prefix="/registry", tags=["tool_registry"])
+    app.include_router(
+        registry.router, prefix="/v1/tools", tags=["tools"]
+    )  # Unified tools API for Agent A compatibility
 
     # Health check
     @app.get("/health")

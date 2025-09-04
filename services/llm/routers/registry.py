@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import sys
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -62,6 +63,28 @@ class ToolChainValidationRequest(BaseModel):
     """Tool chain validation request."""
 
     tool_chain: List[str] = Field(..., description="List of tools to validate as chain")
+
+
+class ToolInfo(BaseModel):
+    """Standard tool information format."""
+
+    name: str
+    description: str
+    parameters: Dict[str, Any]
+    category: str = "general"
+    version: str = "1.0"
+
+
+class ToolExecuteResponse(BaseModel):
+    """Standard tool execution response format."""
+
+    tool_name: str
+    success: bool
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+    execution_time_ms: float
+    cached: bool = False
+    request_id: Optional[str] = None
 
 
 def get_registry_from_request(request: Request):
@@ -199,6 +222,35 @@ async def validate_tool_arguments(tool_name: str, request: ToolValidationRequest
     except Exception as e:
         logger.error(f"Tool validation failed for {tool_name}: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Tool validation failed")
+
+
+@router.post("/execute", response_model=ToolExecuteResponse)
+async def execute_tool_standard(request: ToolExecutionRequest):
+    """Execute tool via API - standard endpoint for external integrations."""
+    try:
+        enhanced_manager = await get_enhanced_tool_manager()
+
+        # Execute tool using enhanced manager
+        result = await enhanced_manager.execute_tool_enhanced(
+            tool_name=request.tool_name, arguments=request.arguments, tool_call_id=None, use_cache=request.use_cache
+        )
+
+        # Format response in standard format
+        return ToolExecuteResponse(
+            tool_name=request.tool_name,
+            success=result.success,
+            result=result.data if result.success else None,
+            error=result.error if not result.success else None,
+            execution_time_ms=result.latency_ms,
+            cached=False,  # TODO: Implement cache detection
+            request_id=None,
+        )
+
+    except Exception as e:
+        logger.error(f"Tool execution failed: {request.tool_name}, error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Tool execution failed: {str(e)}"
+        )
 
 
 @router.post("/{tool_name}/execute")
