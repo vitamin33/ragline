@@ -1,0 +1,218 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Tool Execution Event Schema v1.0",
+  "description": "Event schema for tracking LLM tool execution lifecycle and performance",
+  "required": ["event", "version", "tenant_id", "tool_execution_id", "tool_name", "status", "ts"],
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": ["tool_execution"],
+      "description": "Event type identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$",
+      "description": "Event schema version"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier for multi-tenancy isolation"
+    },
+    "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "User who initiated the tool execution"
+    },
+    "tool_execution_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this tool execution instance"
+    },
+    "tool_name": {
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]*$",
+      "description": "Name of the executed tool (snake_case)",
+      "examples": ["retrieve_menu", "search_knowledge_base", "analyze_conversation"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["started", "completed", "failed", "cached", "rate_limited"],
+      "description": "Tool execution status"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Event timestamp in ISO 8601 format"
+    },
+    "execution_data": {
+      "type": "object",
+      "description": "Tool execution performance and metadata",
+      "properties": {
+        "duration_ms": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Execution duration in milliseconds"
+        },
+        "input_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of input tokens processed"
+        },
+        "output_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of output tokens generated"
+        },
+        "cost_usd": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Estimated execution cost in USD"
+        },
+        "cache_hit": {
+          "type": "boolean",
+          "description": "Whether result was served from cache"
+        },
+        "external_api_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of external API calls made"
+        },
+        "memory_usage_mb": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Peak memory usage in MB"
+        }
+      }
+    },
+    "tool_parameters": {
+      "type": "object",
+      "description": "Tool input parameters (sanitized, no PII)",
+      "properties": {
+        "parameter_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of parameters passed"
+        },
+        "query_length": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Length of query parameter if present"
+        },
+        "has_filters": {
+          "type": "boolean",
+          "description": "Whether filtering parameters were used"
+        }
+      }
+    },
+    "result_metadata": {
+      "type": "object",
+      "description": "Tool execution result metadata",
+      "properties": {
+        "result_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of results returned"
+        },
+        "result_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Size of result payload in bytes"
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "Whether results were truncated"
+        },
+        "relevance_scores": {
+          "type": "array",
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "description": "Relevance scores for returned results"
+        }
+      }
+    },
+    "error_details": {
+      "type": "object",
+      "description": "Error information for failed executions",
+      "properties": {
+        "error_type": {
+          "type": "string",
+          "enum": ["validation_error", "timeout", "api_error", "system_error", "rate_limit", "circuit_breaker"],
+          "description": "Category of error"
+        },
+        "error_code": {
+          "type": "string",
+          "description": "Specific error code"
+        },
+        "retry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of retry attempts made"
+        },
+        "circuit_breaker_state": {
+          "type": "string",
+          "enum": ["closed", "open", "half_open"],
+          "description": "Circuit breaker state at time of execution"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional execution context",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "description": "Chat or session identifier"
+        },
+        "conversation_turn": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Turn number in conversation"
+        },
+        "request_id": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Request correlation ID"
+        },
+        "worker_id": {
+          "type": "string",
+          "description": "Identifier of worker that executed tool"
+        },
+        "model_name": {
+          "type": "string",
+          "description": "LLM model used (if applicable)"
+        },
+        "source_ip": {
+          "type": "string",
+          "format": "ipv4",
+          "description": "Source IP address (anonymized)"
+        }
+      }
+    },
+    "meta": {
+      "type": "object",
+      "description": "Additional metadata and tags",
+      "properties": {
+        "reason": {
+          "type": "string",
+          "description": "Human-readable reason for execution"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Classification tags for analytics"
+        },
+        "experiment_id": {
+          "type": "string",
+          "description": "A/B test or experiment identifier"
+        }
+      }
+    }
+  }
+}
