@@ -26,6 +26,15 @@ from services.worker.config import WorkerConfig
 
 logger = get_task_logger(__name__)
 
+# Import tool metrics
+try:
+    from .tool_metrics import get_tool_metrics
+
+    TOOL_METRICS_AVAILABLE = True
+except ImportError:
+    TOOL_METRICS_AVAILABLE = False
+    logger.warning("Tool metrics not available")
+
 
 class MetricType(str, Enum):
     """Metric type enumeration"""
@@ -409,6 +418,9 @@ class MetricsCollector:
         # Tracking for rate calculations
         self.last_counts = {"outbox_processed": 0, "stream_published": 0, "tasks_executed": 0}
 
+        # Tool metrics integration
+        self.tool_metrics = get_tool_metrics() if TOOL_METRICS_AVAILABLE else None
+
     async def collect_worker_metrics(self, worker_stats: Dict[str, Any]):
         """Collect and update worker metrics"""
         try:
@@ -450,6 +462,31 @@ class MetricsCollector:
         except Exception as e:
             logger.error(f"Failed to collect outbox metrics: {e}")
             self.metrics.record_error("metrics_collector", "outbox_metrics_error")
+
+    async def collect_tool_metrics(self, tool_analytics: Optional[Dict[str, Any]] = None):
+        """Collect and update tool execution metrics"""
+        try:
+            if not self.tool_metrics:
+                return
+
+            # Update success rates from analytics if provided
+            if tool_analytics:
+                self.tool_metrics.update_success_rates(tool_analytics)
+
+            # Record current system resources
+            self.tool_metrics.record_system_resources()
+
+            # Get registered tools count
+            registered_tools = self.tool_metrics.get_registered_tools()
+            logger.debug(f"Tool metrics collected for {len(registered_tools)} tools")
+
+            # Update circuit breaker metrics if available
+            if hasattr(self, "_update_circuit_breaker_metrics"):
+                await self._update_circuit_breaker_metrics()
+
+        except Exception as e:
+            logger.error(f"Failed to collect tool metrics: {e}")
+            self.metrics.record_error("metrics_collector", "tool_metrics_error")
 
     async def collect_dlq_metrics(self, dlq_stats: Dict[str, Any]):
         """Collect and update DLQ metrics"""

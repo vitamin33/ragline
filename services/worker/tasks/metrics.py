@@ -16,6 +16,15 @@ from packages.orchestrator.dlq_manager import get_dlq_manager
 from packages.orchestrator.metrics import get_metrics, get_metrics_collector
 from packages.orchestrator.outbox import get_outbox_consumer
 
+# Tool tracking integration
+try:
+    from .tool_tracking import get_tool_tracker
+
+    TOOL_TRACKING_AVAILABLE = True
+except ImportError:
+    TOOL_TRACKING_AVAILABLE = False
+    logger.warning("Tool tracking not available")
+
 from ..celery_app import app
 from ..config import WorkerConfig
 
@@ -120,6 +129,27 @@ def collect_all_metrics(self) -> Dict[str, Any]:
                 logger.error(error_msg)
                 collection_results["errors"].append(error_msg)
                 metrics.record_error("metrics_task", "circuit_breaker_collection_error")
+
+            # Collect tool metrics
+            try:
+                if TOOL_TRACKING_AVAILABLE:
+                    # Get tool analytics data
+                    tracker = await get_tool_tracker()
+                    tool_analytics = await tracker.get_tool_analytics(hours=1)
+
+                    # Update tool metrics
+                    await collector.collect_tool_metrics(tool_analytics)
+
+                    collection_results["collections"]["tools"] = "success"
+                    logger.debug("Tool metrics collected successfully")
+                else:
+                    collection_results["collections"]["tools"] = "skipped_unavailable"
+
+            except Exception as e:
+                error_msg = f"Tool metrics collection failed: {e}"
+                logger.error(error_msg)
+                collection_results["errors"].append(error_msg)
+                metrics.record_error("metrics_task", "tool_collection_error")
 
             # Update events per second calculations
             try:

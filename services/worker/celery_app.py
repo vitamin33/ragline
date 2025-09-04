@@ -23,6 +23,8 @@ app = Celery(
         "services.worker.tasks.notifications",
         "services.worker.tasks.processing",
         "services.worker.tasks.health",
+        "services.worker.tasks.tool_tracking",
+        "services.worker.tasks.tool_cache",
     ],
 )
 
@@ -34,6 +36,8 @@ app.conf.update(
         "services.worker.tasks.notifications.*": {"queue": "notifications"},
         "services.worker.tasks.processing.*": {"queue": "processing"},
         "services.worker.tasks.health.*": {"queue": "health"},
+        "services.worker.tasks.tool_tracking.*": {"queue": "tool_tracking"},
+        "services.worker.tasks.tool_cache.*": {"queue": "tool_cache"},
     },
     # Queue configuration
     task_queues=(
@@ -41,6 +45,8 @@ app.conf.update(
         Queue("notifications", Exchange("notifications"), routing_key="notifications"),
         Queue("processing", Exchange("processing"), routing_key="processing"),
         Queue("health", Exchange("health"), routing_key="health"),
+        Queue("tool_tracking", Exchange("tool_tracking"), routing_key="tool_tracking"),
+        Queue("tool_cache", Exchange("tool_cache"), routing_key="tool_cache"),
     ),
     task_default_queue="processing",
     task_default_exchange="processing",
@@ -88,6 +94,16 @@ app.conf.update(
             "schedule": 300.0,  # 5 minutes
             "options": {"queue": "health"},
         },
+        "tool-analytics-cleanup": {
+            "task": "services.worker.tasks.tool_tracking.cleanup_old_tool_stats",
+            "schedule": 3600.0,  # 1 hour
+            "options": {"queue": "tool_tracking"},
+        },
+        "tool-cache-cleanup": {
+            "task": "services.worker.tasks.tool_cache.cleanup_expired_cache",
+            "schedule": 1800.0,  # 30 minutes
+            "options": {"queue": "tool_cache"},
+        },
     },
 )
 
@@ -105,6 +121,13 @@ app.conf.ragline_redis_streams = {
         "consumer_group": "ragline_notifiers",
         "consumer_name": f"notifier_{os.getpid()}",
         "max_len": 5000,
+        "block_time": 100,
+    },
+    "tool_executions": {
+        "stream_name": "ragline:stream:tool_executions",
+        "consumer_group": "ragline_tool_trackers",
+        "consumer_name": f"tool_tracker_{os.getpid()}",
+        "max_len": 10000,
         "block_time": 100,
     },
 }
