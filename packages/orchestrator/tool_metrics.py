@@ -24,6 +24,15 @@ from services.worker.config import WorkerConfig
 
 logger = get_task_logger(__name__)
 
+# Tool cache integration
+try:
+    from .tool_circuit_breakers import get_all_tool_breaker_metrics, update_tool_metrics_from_breaker
+
+    TOOL_CIRCUIT_BREAKERS_AVAILABLE = True
+except ImportError:
+    TOOL_CIRCUIT_BREAKERS_AVAILABLE = False
+    logger.warning("Tool circuit breakers not available")
+
 
 class ToolMetrics:
     """

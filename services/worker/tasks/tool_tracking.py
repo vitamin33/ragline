@@ -30,6 +30,15 @@ except ImportError:
     TOOL_METRICS_AVAILABLE = False
     logger.warning("Tool metrics not available")
 
+# Tool cache integration
+try:
+    from packages.orchestrator.tool_cache import get_tool_cache_stats
+
+    TOOL_CACHE_AVAILABLE = True
+except ImportError:
+    TOOL_CACHE_AVAILABLE = False
+    logger.warning("Tool cache not available")
+
 from ..celery_app import app
 from ..config import WorkerConfig
 
@@ -321,6 +330,14 @@ class ToolExecutionTracker:
                 (total_success / total_executions * 100) if total_executions > 0 else 0.0
             )
             analytics["summary"]["total_cost_usd"] = total_cost
+
+            # Add cache statistics if available
+            if TOOL_CACHE_AVAILABLE:
+                try:
+                    cache_stats = await get_tool_cache_stats(tool_name=tool_name)
+                    analytics["cache_performance"] = cache_stats
+                except Exception as e:
+                    logger.debug(f"Could not get cache stats: {e}")
 
             return analytics
 

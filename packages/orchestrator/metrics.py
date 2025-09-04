@@ -480,6 +480,10 @@ class MetricsCollector:
             registered_tools = self.tool_metrics.get_registered_tools()
             logger.debug(f"Tool metrics collected for {len(registered_tools)} tools")
 
+            # Update circuit breaker metrics if available
+            if hasattr(self, "_update_circuit_breaker_metrics"):
+                await self._update_circuit_breaker_metrics()
+
         except Exception as e:
             logger.error(f"Failed to collect tool metrics: {e}")
             self.metrics.record_error("metrics_collector", "tool_metrics_error")
